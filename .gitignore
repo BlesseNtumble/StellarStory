@@ -1,6 +1,11 @@
 .gradle
 **/build/
 !src/**/build/
+run
+runServer
+
+#IDE
+.idea
 
 # Ignore Gradle GUI config
 gradle-app.setting
