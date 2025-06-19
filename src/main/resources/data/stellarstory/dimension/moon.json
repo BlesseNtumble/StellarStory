@@ -1,0 +1,11 @@
+{
+  "type": "stellarstory:moon_type",
+  "generator": {
+    "type": "stellarstory:moon_chunk_generator",
+    "settings": {
+      "base": 65,
+      "verticalvariance": 4,
+      "horizontalvariance": 4
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "JAVA_8",
+  "package": "stellarstory.mixin",
+  "refmap": "mixins.stellarstory.refmap.json",
+  "mixins": [
+    "MixinBiome",
+    "MixinDimensionType",
+    "MixinEntity",
+    "MixinLevel"
+  ],
+  "client": [
+    "MixinClientLevel",
+    "MixinMinecraft"
+  ],
+  "server": []
+}
