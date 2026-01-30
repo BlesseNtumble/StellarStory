@@ -1,77 +1,65 @@
 package stellarstory.api.celestial;
 
 import com.mojang.serialization.Codec;
-import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.registries.RegistryObject;
-import stellarstory.StellarRegistries;
 import stellarstory.StellarStory;
 import stellarstory.api.celestial.data.AtmosphereData;
 import stellarstory.api.celestial.data.PhysicalData;
-import stellarstory.common.celestials.solarsystems.world.MoonChunkGenerator;
+import stellarstory.common.init.StellarDimensions;
 
+import java.util.Objects;
 import java.util.OptionalLong;
 
-public abstract class CelestialBody {
+public abstract class CelestialBody implements ICodecBody {
 
-    private final CelestialBody.Properties properties;
-    public RegistryObject<DimensionType> CELESTIAL_DIM_TYPE;
-    public RegistryObject<Codec<MoonChunkGenerator>> CELESTIAL_CHUNK_GENERATOR;
-    public ResourceKey<Level> CELESTIAL_LEVEL;
+    protected String name;
+    protected ResourceLocation icon;
 
-    public static CelestialBody EMPTY = new CelestialBody(Properties.of("EMPTY")) {};
-
-    public CelestialBody(CelestialBody.Properties properties){
-
-        this.properties = properties;
+    public CelestialBody(Builder<?> builder) {
+        this.name = builder.name;
     }
 
     public String getName() {
-        return this.properties.name;
+        return this.name;
     }
 
-    public ResourceLocation getIcon() {return this.properties.icon; }
+    public ResourceLocation getIcon() {return this.icon; }
+
+    @Override
+    public abstract Codec<? extends CelestialBody> getCodec();
 
     public CelestialBody setReachable() {
-        CELESTIAL_DIM_TYPE = StellarRegistries.DIMENSION_TYPES.register( getName() + "_type", this::dimType);
-        CELESTIAL_CHUNK_GENERATOR = StellarRegistries.CHUNK_GENERATORS.register(getName() + "_chunk_generator", () -> MoonChunkGenerator.CODEC);
+        //CELESTIAL_DIM_TYPE = StellarDimensions.DIMENSION_TYPES.register( getName() + "_type", this::dimType);
+        //CELESTIAL_CHUNK_GENERATOR = StellarDimensionsRegistries.CHUNK_GENERATORS.register(getName() + "_chunk_generator", () -> MoonChunkGenerator.CODEC);
 
-        CELESTIAL_LEVEL = ResourceKey.create(Registry.DIMENSION_REGISTRY, StellarStory.prefix(getName()));
+        //CELESTIAL_LEVEL = ResourceKey.create(Registries.DIMENSION, StellarStory.prefix(getName()));
 
         return this;
     }
 
     public boolean isEmpty() {
-        return this == EMPTY;
+        return this.getName().isEmpty();
     }
-
-
-    public CelestialBody.Properties getProperties() {
-        return this.properties;
-    }
-
-    public CelestialBody setPhysicalData(PhysicalData data) {
-        this.properties.setPhysicalData(data);
-        return this;
-    }
+    //public boolean isReachable() { return !isEmpty() && CELESTIAL_DIM_TYPE != null; }
 
     @Override
     public boolean equals(Object obj) {
-        return this.getName() == ((CelestialBody)obj).getName();
+        return Objects.equals(this.getName(), ((CelestialBody) obj).getName());
     }
-
-    public boolean isReachable() { return !isEmpty() && CELESTIAL_DIM_TYPE != null; }
 
     @Override
     public String toString() {
         return this.getName();
     }
-
+/*
     private DimensionType dimType() {
         return new DimensionType(
                 OptionalLong.empty(), //time
@@ -91,48 +79,24 @@ public abstract class CelestialBody {
                 new DimensionType.MonsterSettings(false, false, UniformInt.of(0, 7), 7)
         );
     }
+*/
+    public static abstract class Builder<T extends Builder<T>> {
+        protected String name;
+        protected ResourceLocation icon;
 
-    public static class Properties {
-        String name;
-        public ResourceLocation icon;
-        PhysicalData physicalData;
-        AtmosphereData atmosphereData;
 
-        private Properties(String name) {
+        public T name(String name) {
             this.name = name;
+            return self();
         }
 
-        public static Properties of(String name) {
-            return new Properties(name);
-        }
-
-        public Properties setIcon(ResourceLocation icon) {
+        public T icon(ResourceLocation icon) {
             this.icon = icon;
-            return this;
+            return self();
         }
 
-        public Properties setPhysicalData(PhysicalData data) {
-            this.physicalData = data;
-            return this;
-        }
+        protected abstract T self();
 
-        public Properties setAtmosphereData(AtmosphereData data) {
-            this.atmosphereData = data;
-            return this;
-        }
-
-        public PhysicalData getOrCreatePhysicalData() {
-            if(this.physicalData == null)
-                return PhysicalData.Builder.create();
-
-            return this.physicalData;
-        }
-
-        public AtmosphereData getOrCreateAtmosphereData() {
-            if(this.atmosphereData == null)
-                return AtmosphereData.Builder.create();
-
-            return this.atmosphereData;
-        }
+        public abstract CelestialBody build();
     }
 }

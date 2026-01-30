@@ -1,76 +1,73 @@
 package stellarstory.api.celestial;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.util.ExtraCodecs;
-import stellarstory.StellarRegistries;
-import stellarstory.StellarStory;
-import stellarstory.utils.codec.ImmutableSetCodec;
+import net.minecraft.resources.ResourceLocation;
+import stellarstory.api.celestial.basic_type.Star;
 
-import java.util.Set;
+
+import java.util.*;
 
 public class StarSystem {
 
-    // Создание RegistryData
-    public static final RegistryAccess.RegistryData<StarSystem> REGISTRY_DATA = new RegistryAccess.RegistryData<>(
-            StellarRegistries.STARSYSTEMS_KEY,
-            StarSystem.CODEC, null // Указание Codec
-    );
     private String galaxy = "milky_way";
-    private final String name;
-    private Set<Star> stars = Sets.newHashSet();
-    private Set<Planet> planets = Sets.newHashSet();
-    private Set<IChildBody> childs = Sets.newHashSet();
+    private String systemName;
+    private List<ResourceLocation> starReferences;
+    private List<Star> stars = new ArrayList<>();
+    //private Set<Planet> planets = Sets.newHashSet();
+    //private Set<IChildBody> childs = Sets.newHashSet();
 
+    public static final Codec<StarSystem> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.STRING.fieldOf("system_name").forGetter(StarSystem::getName),
+            ResourceLocation.CODEC.listOf().fieldOf("stars").forGetter(StarSystem::getStarReferences)
+    ).apply(instance, StarSystem::new));
 
     public StarSystem(String name) {
-        this.name = name;
+        this.systemName = name;
     }
 
-    public StarSystem(String name, ImmutableSet<Star> stars)
+    public StarSystem(String name, List<ResourceLocation> starReferences)
     {
-        this.name = name;
-        this.stars = stars;
+        this.systemName = name;
+        this.starReferences = starReferences;
     }
 
     public void addStar(Star star) {
+        this.stars.forEach(s -> {
+            if(s.getName().equals(star.getName()))
+                throw new RuntimeException(String.format("Star %s already registered!", star.getName()));
+        });
+
         this.stars.add(star);
     }
 
-    public ImmutableSet<Star> getStars() {
-        return ImmutableSet.copyOf(stars);
+    public List<Star> getStars() {
+        return ImmutableList.copyOf(stars);
     }
 
-    public void addPlanet(Planet planet){
-        this.planets.add(planet);
-    }
-
-    public ImmutableSet<Planet> getPlanets() { return ImmutableSet.copyOf(planets); }
-
-    public void addChild(IChildBody child){
-        this.childs.add(child);
-    }
-
-    public ImmutableSet<IChildBody> getChilds() {
-        return ImmutableSet.copyOf(childs);
-    }
-
-    public Star getMainStar() { return getStars().asList().get(0);}
+    public Star getMainStar() { return getStars().get(0);}
 
     public String getName() {
-        return this.name;
+        return this.systemName;
     }
 
-    @Override
-    public String toString() {
-        return String.format("%s (%s)", this.name, this.galaxy);
+    public List<ResourceLocation> getStarReferences() {
+        return Collections.unmodifiableList(starReferences);
     }
 
-    // CODEC for jsons
-    public static final Codec<StarSystem> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.STRING.fieldOf("name").forGetter(StarSystem::getName)
-    ).apply(instance, StarSystem::new));
+    public void resolveStars(Map<ResourceLocation, Star> starMap) {
+        for (ResourceLocation starReference : starReferences) {
+            Star star = starMap.get(starReference);
+            if (star != null) {
+                star.setParentStarSystem(this);
+                stars.add(star);
+            } else {
+                System.err.println("Star not found: " + starReference);
+            }
+        }
+    }
+
 }

@@ -11,7 +11,7 @@ import stellarstory.StellarStory;
 import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
-import stellarstory.api.celestial.Planet;
+import stellarstory.api.celestial.basic_type.Planet;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,13 +38,13 @@ public class ClientEvents {
             CelestialBody body = CelestialRegisters.getCelestialBodyFromPlayer(player);
 
             if(body instanceof Planet) {
-                text.add(CelestialRegisters.getStarSystemFromStar(((Planet) body).getParentStar()).toString());
-                text.add("   └" + ((Planet) body).getParentStar().toString());
+                text.add(CelestialRegisters.getStarSystemFromStar(((Planet) body).getParentStar().orElseThrow()).getName());
+                text.add("   └" + ((Planet) body).getParentStar().orElseThrow().getName());
                 text.add("        └" + body.getName());
             }
 
             if(body instanceof IChildBody) {
-                text.add(CelestialRegisters.getStarSystemFromStar(((IChildBody) body).getParentPlanet().getParentStar()).toString());
+                text.add(CelestialRegisters.getStarSystemFromStar(((IChildBody) body).getParentPlanet().getParentStar().orElseThrow()).toString());
                 text.add("   └" + ((IChildBody) body).getParentPlanet().getParentStar().toString());
                 text.add("        └" + ((IChildBody) body).getParentPlanet().toString());
                 text.add("             └" + body.getName());
@@ -52,9 +52,9 @@ public class ClientEvents {
 
 
             text.add("");
-            text.add("Day Length: " + body.getProperties().getOrCreatePhysicalData().getDayLength());
-            text.add("Gravity: " + body.getProperties().getOrCreatePhysicalData().getGravity());
-            text.add("Temperature Nominal: " + body.getProperties().getOrCreateAtmosphereData().getTemperature());
+            //text.add("Day Length: " + body.getProperties().getOrCreatePhysicalData().getDayLength());
+            //text.add("Gravity: " + body.getProperties().getOrCreatePhysicalData().getGravity());
+            //text.add("Temperature Nominal: " + body.getProperties().getOrCreateAtmosphereData().getTemperature());
             text.add("Temperature: " + temperatureLevel);
 
             /*
@@ -69,7 +69,7 @@ public class ClientEvents {
 */
             int i = 0;
             for(String s : text){
-                mc.font.draw(e.getPoseStack(), s, 15, 15 + (15 * i++), 0xFFFFFF);
+                e.getGuiGraphics().drawString(mc.font, s, 15, 15 + (15 * i++), 0xFFFFFF);
             }
 
         }

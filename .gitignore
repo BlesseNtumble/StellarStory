@@ -2,6 +2,7 @@
 **/build/
 !src/**/build/
 run
+run-data
 runServer
 
 #IDE

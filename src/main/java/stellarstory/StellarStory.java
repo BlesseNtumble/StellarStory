@@ -1,8 +1,6 @@
 package stellarstory;
 
-import net.minecraft.core.Registry;
 import net.minecraft.data.DataGenerator;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -11,7 +9,9 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.data.ExistingFileHelper;
 import net.minecraftforge.data.event.GatherDataEvent;
 import net.minecraftforge.event.server.ServerLifecycleEvent;
+import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -19,12 +19,11 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import stellarstory.api.celestial.Star;
-import stellarstory.api.celestial.StarSystem;
-import stellarstory.common.data.StellarBlockstates;
-import stellarstory.common.data.StellarItemmodels;
-import stellarstory.common.registers.StellarDimensions;
-import stellarstory.network.NetworkHandler;
+import stellarstory.common.init.*;
+import stellarstory.data.CelestialBodyLoader;
+import stellarstory.data.StellarBlockstatesData;
+import stellarstory.data.StellarItemModelData;
+
 
 import java.util.Locale;
 
@@ -36,21 +35,33 @@ public class StellarStory {
     private static final boolean isDebug = true;
 
 
-    public StellarStory() {
+    public StellarStory(FMLJavaModLoadingContext context) {
 
-        IEventBus eventBus = FMLJavaModLoadingContext.get().getModEventBus();
+        IEventBus eventBus = context.getModEventBus();
         IEventBus modEventBus = MinecraftForge.EVENT_BUS;
 
-        StellarRegistries.ITEMS.register(eventBus);
-        StellarRegistries.BLOCKS.register(eventBus);
-        StellarRegistries.DIMENSION_TYPES.register(eventBus);
-        StellarRegistries.CHUNK_GENERATORS.register(eventBus);
+        StellarConfigs.register(context);
 
-        StellarDimensions.register(eventBus);
-        NetworkHandler.registerPackets();
+        StellarItems.REGISTRY.register(eventBus);
+        StellarBlocks.REGISTRY.register(eventBus);
+        StellarTabs.REGISTRY.register(eventBus);
+        StellarDimensions.DIMENSION_TYPES.register(eventBus);
+        StellarDimensions.CELESTIAL_BODIES.register(eventBus);
+        StellarDimensions.initialization();
+
+//
+//        StellarRegistries.ITEMS.register(eventBus);
+//        StellarRegistries.BLOCKS.register(eventBus);
+//        StellarRegistries.DIMENSION_TYPES.register(eventBus);
+//        StellarRegistries.CHUNK_GENERATORS.register(eventBus);
+//
+//        StellarDimensions.register(eventBus);
+//        NetworkHandler.registerPackets();
 
         modEventBus.addListener(this::serverSetup);
         modEventBus.addListener(this::serverStarting);
+
+        modEventBus.addListener(this::onServerStarting);
         eventBus.addListener(this::gatherData);
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> modEventBus.addListener(this::clientSetup));
@@ -60,13 +71,15 @@ public class StellarStory {
     }
 
 
+
+
     public void clientSetup(FMLClientSetupEvent event) {
 
     }
 
     public void serverSetup(FMLCommonSetupEvent event) {
         event.enqueueWork(() -> {
-            StellarDimensions.commonRegister();
+
         });
     }
 
@@ -87,6 +100,12 @@ public class StellarStory {
 */
     }
 
+
+    public void onServerStarting(ServerStartingEvent event) {
+        ResourceManager resourceManager = event.getServer().getResourceManager();
+        CelestialBodyLoader.loadCelestialBodies(resourceManager);
+    }
+
     public static Logger getLogger() {
         return LOGGER;
     }
@@ -96,17 +115,17 @@ public class StellarStory {
     }
 
     public static ResourceLocation prefix(String name) {
-        return new ResourceLocation(MODID, name.toLowerCase(Locale.ROOT));
+        return ResourceLocation.fromNamespaceAndPath(MODID, name.toLowerCase(Locale.ROOT));
     }
-
 
     public void gatherData(GatherDataEvent e) {
         DataGenerator generator = e.getGenerator();
         ExistingFileHelper helper = e.getExistingFileHelper();
 
+
         if(e.includeClient()) {
-            generator.addProvider(true, new StellarBlockstates(generator, helper));
-            generator.addProvider(true, new StellarItemmodels(generator, helper));
+            generator.addProvider(true, new StellarBlockstatesData(generator.getPackOutput(), helper));
+            generator.addProvider(true, new StellarItemModelData(generator.getPackOutput(), helper));
         }
 
         if(e.includeServer()) {}
