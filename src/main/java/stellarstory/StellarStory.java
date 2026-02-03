@@ -46,7 +46,6 @@ public class StellarStory {
         StellarBlocks.REGISTRY.register(eventBus);
         StellarTabs.REGISTRY.register(eventBus);
         StellarDimensions.DIMENSION_TYPES.register(eventBus);
-        StellarDimensions.CELESTIAL_BODIES.register(eventBus);
         StellarDimensions.initialization();
 
 //

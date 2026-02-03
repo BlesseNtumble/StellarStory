@@ -1,12 +1,30 @@
 package stellarstory.api.celestial.basic_type;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.resources.ResourceLocation;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
 
 public class Moon extends CelestialBody implements IChildBody {
 
     private Planet parent_planet;
+
+    public static final Codec<Moon> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            Codec.STRING.fieldOf("name").forGetter(CelestialBody::getName),
+            ResourceLocation.CODEC.fieldOf("icon").forGetter(CelestialBody::getIcon),
+            Codec.BOOL.fieldOf("reachable").forGetter(CelestialBody::getReachable)
+    ).apply(instance, (name, icon, reachable) -> {
+        Moon.Builder builder = Moon.builder()
+                .name(name)
+                .icon(icon);
+
+        Moon moon = builder.build();
+        //if(reachable)
+        //    moon.setReachable();
+
+        return moon;
+    }));
 
     public Moon(Builder builder) {
         super(builder);
@@ -25,7 +43,11 @@ public class Moon extends CelestialBody implements IChildBody {
 
     @Override
     public Codec<? extends CelestialBody> getCodec() {
-        return null;
+        return CODEC;
+    }
+
+    public static Moon.Builder builder() {
+        return new Moon.Builder();
     }
 
     public static class Builder extends CelestialBody.Builder<Moon.Builder> {

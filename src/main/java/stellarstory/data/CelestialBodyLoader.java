@@ -10,7 +10,9 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import stellarstory.StellarStory;
 import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
+import stellarstory.api.celestial.IChildBody;
 import stellarstory.api.celestial.StarSystem;
+import stellarstory.api.celestial.basic_type.Moon;
 import stellarstory.api.celestial.basic_type.Planet;
 import stellarstory.api.celestial.basic_type.Star;
 
@@ -23,16 +25,19 @@ public class CelestialBodyLoader {
     private static final Map<ResourceLocation, StarSystem> STAR_SYSTEMS = new HashMap<>();
     private static final Map<ResourceLocation, Star> STARS = new HashMap<>();
     private static final Map<ResourceLocation, Planet> PLANETS = new HashMap<>();
+    private static final Map<ResourceLocation, Moon> MOONS = new HashMap<>();
 
     public static void loadCelestialBodies(ResourceManager resourceManager) {
         // Очистка предыдущих данных
         STAR_SYSTEMS.clear();
         STARS.clear();
         PLANETS.clear();
+        MOONS.clear();
 
         loadStarSystems(resourceManager);
         loadCelestialBodies(resourceManager, "celestialbodies/stars", Star.CODEC, STARS, "Star");
         loadCelestialBodies(resourceManager, "celestialbodies/planets", Planet.CODEC, PLANETS, "Planet");
+        loadCelestialBodies(resourceManager, "celestialbodies/moons", Moon.CODEC, MOONS, "Moon");
 
         linkCelestialBodies();
         registerStarSystems();
@@ -89,6 +94,10 @@ public class CelestialBodyLoader {
     }
 
     private static void linkCelestialBodies() {
+
+        for(Planet planets : PLANETS.values()) {
+            planets.resolveChilds(MOONS);
+        }
 
         for(Star stars : STARS.values()) {
             stars.resolvePlanets(PLANETS);

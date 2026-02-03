@@ -10,7 +10,6 @@ import stellarstory.StellarStory;
 import stellarstory.api.celestial.CelestialBody;
 
 public class StellarDimensions {
-    public static final DeferredRegister<CelestialBody> CELESTIAL_BODIES = DeferredRegister.create(ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, "celestialbodies"), StellarStory.MODID);
 
     public static final DeferredRegister<DimensionType> DIMENSION_TYPES = DeferredRegister.create(Registries.DIMENSION_TYPE, StellarStory.MODID);
     public static final DeferredRegister<Codec<? extends ChunkGenerator>> CHUNK_GENERATORS = DeferredRegister.create(Registries.CHUNK_GENERATOR, StellarStory.MODID);

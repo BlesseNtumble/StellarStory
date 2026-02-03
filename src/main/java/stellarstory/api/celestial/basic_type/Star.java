@@ -69,7 +69,7 @@ public class Star extends CelestialBody {
                 planet.setParentStar(this);
                 planets.add(planet);
             } else {
-                System.err.println("Star not found: " + starReference);
+                System.err.println("Planet not found: " + starReference);
             }
         }
     }

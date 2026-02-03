@@ -2,6 +2,7 @@
   "name": "sun",
   "icon": "stellarstory:textures/icons/sun.png",
   "planets": [
-    "stellarstory:overworld"
+    "stellarstory:overworld",
+    "stellarstory:mars"
   ]
 }

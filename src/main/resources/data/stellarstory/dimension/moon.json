@@ -1,0 +1,36 @@
+{
+  "type": "stellarstory:moon_type",
+  "generator": {
+    "type": "minecraft:noise",
+	"biome_source": {
+	  "biomes": [
+        {
+          "biome": "stellarstory:moon_biome_1",
+          "parameters": {
+            "continentalness": 0,
+            "depth": 0,
+            "erosion": 0,
+            "humidity": 0,
+            "offset": 0,
+            "temperature": 0,
+            "weirdness": 0
+          }
+        },
+        {
+          "biome": "stellarstory:moon_biome_2",
+          "parameters": {
+            "continentalness": 0,
+            "depth": 0,
+            "erosion": 0,
+            "humidity": 0.15,
+            "offset": 0,
+            "temperature": -0.05,
+            "weirdness": 0
+          }
+        }
+      ],
+      "type": "minecraft:multi_noise"
+	},
+    "settings": "stellarstory:moon_noise_settings"
+  }
+}

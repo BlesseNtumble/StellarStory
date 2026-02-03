@@ -44,8 +44,8 @@ public class ClientEvents {
             }
 
             if(body instanceof IChildBody) {
-                text.add(CelestialRegisters.getStarSystemFromStar(((IChildBody) body).getParentPlanet().getParentStar().orElseThrow()).toString());
-                text.add("   └" + ((IChildBody) body).getParentPlanet().getParentStar().toString());
+                text.add(CelestialRegisters.getStarSystemFromStar(((IChildBody) body).getParentPlanet().getParentStar().orElseThrow()).getName());
+                text.add("   └" + ((IChildBody) body).getParentPlanet().getParentStar().orElseThrow().getName());
                 text.add("        └" + ((IChildBody) body).getParentPlanet().toString());
                 text.add("             └" + body.getName());
             }

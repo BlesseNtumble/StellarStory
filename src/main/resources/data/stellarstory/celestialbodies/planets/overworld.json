@@ -1,4 +1,8 @@
 {
   "name": "overworld",
-  "icon": "stellarstory:textures/icons/earth.png"
+  "icon": "stellarstory:textures/icons/earth.png",
+  "reachable": false,
+  "childs": [
+    "stellarstory:moon"
+  ]
 }

@@ -8,11 +8,9 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.util.valueproviders.UniformInt;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.registries.RegistryObject;
 import stellarstory.StellarStory;
-import stellarstory.api.celestial.data.AtmosphereData;
-import stellarstory.api.celestial.data.PhysicalData;
+import stellarstory.api.celestial.basic_type.Planet;
 import stellarstory.common.init.StellarDimensions;
 
 import java.util.Objects;
@@ -22,6 +20,10 @@ public abstract class CelestialBody implements ICodecBody {
 
     protected String name;
     protected ResourceLocation icon;
+    protected boolean isReachable;
+
+    public RegistryObject<DimensionType> CELESTIAL_DIM_TYPE;
+    public ResourceKey<Level> CELESTIAL_LEVEL;
 
     public CelestialBody(Builder<?> builder) {
         this.name = builder.name;
@@ -37,18 +39,20 @@ public abstract class CelestialBody implements ICodecBody {
     public abstract Codec<? extends CelestialBody> getCodec();
 
     public CelestialBody setReachable() {
-        //CELESTIAL_DIM_TYPE = StellarDimensions.DIMENSION_TYPES.register( getName() + "_type", this::dimType);
+        CELESTIAL_DIM_TYPE = StellarDimensions.DIMENSION_TYPES.register( getName() + "_type", this::dimType);
         //CELESTIAL_CHUNK_GENERATOR = StellarDimensionsRegistries.CHUNK_GENERATORS.register(getName() + "_chunk_generator", () -> MoonChunkGenerator.CODEC);
 
-        //CELESTIAL_LEVEL = ResourceKey.create(Registries.DIMENSION, StellarStory.prefix(getName()));
+        CELESTIAL_LEVEL = ResourceKey.create(Registries.DIMENSION, StellarStory.prefix(getName()));
 
+        this.isReachable = true;
         return this;
     }
 
     public boolean isEmpty() {
         return this.getName().isEmpty();
     }
-    //public boolean isReachable() { return !isEmpty() && CELESTIAL_DIM_TYPE != null; }
+
+    public boolean getReachable() { return isReachable; }
 
     @Override
     public boolean equals(Object obj) {
@@ -59,7 +63,7 @@ public abstract class CelestialBody implements ICodecBody {
     public String toString() {
         return this.getName();
     }
-/*
+
     private DimensionType dimType() {
         return new DimensionType(
                 OptionalLong.empty(), //time
@@ -79,7 +83,7 @@ public abstract class CelestialBody implements ICodecBody {
                 new DimensionType.MonsterSettings(false, false, UniformInt.of(0, 7), 7)
         );
     }
-*/
+
     public static abstract class Builder<T extends Builder<T>> {
         protected String name;
         protected ResourceLocation icon;
