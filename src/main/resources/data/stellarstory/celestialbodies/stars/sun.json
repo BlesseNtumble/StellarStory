@@ -1,6 +1,6 @@
 {
   "name": "sun",
-  "icon": "stellarstory:textures/icons/sun.png",
+  "icon": "minecraft:textures/environment/sun.png",
   "planets": [
     "stellarstory:overworld",
     "stellarstory:mars"

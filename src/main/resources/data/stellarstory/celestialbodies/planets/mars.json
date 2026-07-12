@@ -1,5 +1,7 @@
 {
   "name": "mars",
-  "icon": "stellarstory:textures/icons/earth.png",
-  "reachable": true
+  "icon": "stellarstory:textures/icons/mars.png",
+  "reachable": true,
+  "childs": [
+  ]
 }
