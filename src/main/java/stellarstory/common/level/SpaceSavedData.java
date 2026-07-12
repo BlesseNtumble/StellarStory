@@ -10,6 +10,9 @@ import javax.annotation.Nonnull;
 
 public class SpaceSavedData extends SavedData {
 
+    public float lastSyncedTemp = -999f;
+    public int syncTicks = 0;
+
     private float temperature;
 
     public SpaceSavedData() {

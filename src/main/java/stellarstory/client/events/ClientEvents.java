@@ -12,6 +12,7 @@ import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
 import stellarstory.api.celestial.basic_type.Planet;
+import stellarstory.client.utils.ClientSpaceData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,9 +54,14 @@ public class ClientEvents {
 
             text.add("");
             //text.add("Day Length: " + body.getProperties().getOrCreatePhysicalData().getDayLength());
-            //text.add("Gravity: " + body.getProperties().getOrCreatePhysicalData().getGravity());
-            //text.add("Temperature Nominal: " + body.getProperties().getOrCreateAtmosphereData().getTemperature());
-            text.add("Temperature: " + temperatureLevel);
+            text.add("Physical Data:");
+            text.add("└ Gravity: " + body.getBodyDataHandler().physicalData().gravity());
+            text.add("└ Day Lenght: " + body.getBodyDataHandler().physicalData().dayLength() + " | Current: " + mc.level.getDayTime());
+            text.add("");
+            text.add("Atmospheric Data:");
+            text.add("└ Temperature Nominal: " + body.getBodyDataHandler().atmosphereData().temperature() + " | Mod: " + body.getBodyDataHandler().atmosphereData().temperatureModificator() + " | Offset: " + body.getBodyDataHandler().atmosphereData().temperatureOffset());
+            text.add("└ Temperature: " + ClientSpaceData.getTemperature());
+
 
             /*
             e.getPoseStack().pushPose();

@@ -27,8 +27,7 @@ public final class CelestialRegisters {
         return getCelestialBody(player.level().dimension().location().getPath());
     }
 
-    public static CelestialBody getCelestialBodyFromLevel(Level level)
-    {
+    public static CelestialBody getCelestialBodyFromLevel(Level level)    {
         return getCelestialBody(level.dimension().location().getPath());
     }
 
@@ -65,7 +64,7 @@ public final class CelestialRegisters {
         }
 
         // Если ничего не найдено
-        return EMPTY;
+        return null;
     }
 
     public static Set<Planet> getAllPlanets() {

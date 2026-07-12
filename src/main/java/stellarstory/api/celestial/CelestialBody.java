@@ -1,32 +1,24 @@
 package stellarstory.api.celestial;
 
 import com.mojang.serialization.Codec;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.util.valueproviders.UniformInt;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.dimension.DimensionType;
-import net.minecraftforge.registries.RegistryObject;
-import stellarstory.StellarStory;
-import stellarstory.api.celestial.basic_type.Planet;
-import stellarstory.common.init.StellarDimensions;
+import stellarstory.api.celestial.data.AtmosphereData;
+import stellarstory.api.celestial.data.PhysicalData;
 
 import java.util.Objects;
-import java.util.OptionalLong;
 
 public abstract class CelestialBody implements ICodecBody {
 
     protected String name;
     protected ResourceLocation icon;
+    protected final BodyDataHandler bodyDataHandler;
     protected boolean isReachable;
-
-    public RegistryObject<DimensionType> CELESTIAL_DIM_TYPE;
-    public ResourceKey<Level> CELESTIAL_LEVEL;
 
     public CelestialBody(Builder<?> builder) {
         this.name = builder.name;
+        this.icon = builder.icon;
+        this.isReachable = builder.reachable;
+        this.bodyDataHandler = builder.buildBodyData();
     }
 
     public String getName() {
@@ -38,22 +30,15 @@ public abstract class CelestialBody implements ICodecBody {
     @Override
     public abstract Codec<? extends CelestialBody> getCodec();
 
-    public CelestialBody setReachable() {
-        CELESTIAL_DIM_TYPE = StellarDimensions.DIMENSION_TYPES.register( getName() + "_type", this::dimType);
-        //CELESTIAL_CHUNK_GENERATOR = StellarDimensionsRegistries.CHUNK_GENERATORS.register(getName() + "_chunk_generator", () -> MoonChunkGenerator.CODEC);
-
-        CELESTIAL_LEVEL = ResourceKey.create(Registries.DIMENSION, StellarStory.prefix(getName()));
-
-        this.isReachable = true;
-        return this;
-    }
-
     public boolean isEmpty() {
-        return this.getName().isEmpty();
+        return this.getName().isEmpty() || this.getName() == "null";
     }
 
-    public boolean getReachable() { return isReachable; }
+    public boolean isReachable() { return isReachable; }
 
+    public BodyDataHandler getBodyDataHandler() {
+        return bodyDataHandler;
+    }
     @Override
     public boolean equals(Object obj) {
         return Objects.equals(this.getName(), ((CelestialBody) obj).getName());
@@ -64,30 +49,19 @@ public abstract class CelestialBody implements ICodecBody {
         return this.getName();
     }
 
-    private DimensionType dimType() {
-        return new DimensionType(
-                OptionalLong.empty(), //time
-                true, //skylight
-                false, //ceiling
-                false, //ultrawarm
-                false, //natural
-                0.5D, //coordinate scale
-                false, //bed works
-                true, //respawn anchor works
-                -32, // Minimum Y Level
-                32 + 256, // Height + Min Y = Max Y
-                32 + 256, // Logical Height
-                BlockTags.INFINIBURN_OVERWORLD, //infiburn
-                StellarStory.prefix(this.getName()), // DimensionRenderInfo
-                0f, // Wish this could be set to -0.05 since it'll make the world truly blacked out if an area is not sky-lit (see: Dark Forests) Sadly this also messes up night vision so it gets 0
-                new DimensionType.MonsterSettings(false, false, UniformInt.of(0, 7), 7)
-        );
-    }
-
     public static abstract class Builder<T extends Builder<T>> {
         protected String name;
         protected ResourceLocation icon;
+        protected boolean reachable;
 
+        //physical
+        protected long dayLength = 24000L;
+        protected float gravity = 1.0F;
+
+        //atmposhere
+        protected float temperature = 15.0F;
+        protected float temperatureModificator = 1.0F;
+        protected float temperatureOffset = 0.0F;
 
         public T name(String name) {
             this.name = name;
@@ -97,6 +71,18 @@ public abstract class CelestialBody implements ICodecBody {
         public T icon(ResourceLocation icon) {
             this.icon = icon;
             return self();
+        }
+
+        public T reachable(boolean reachable) { this.reachable = reachable; return self(); }
+        public T dayLength(long val) { this.dayLength = val; return self(); }
+        public T gravity(float val) { this.gravity = val; return self(); }
+
+        public T temperature(float val) { this.temperature = val; return self(); }
+        public T temperatureModificator(float val) { this.temperatureModificator = val; return self(); }
+        public T temperatureOffset(float val) { this.temperatureOffset = val; return self(); }
+
+        protected BodyDataHandler buildBodyData() {
+            return new BodyDataHandler(new PhysicalData(dayLength, gravity), new AtmosphereData(temperature, temperatureModificator, temperatureOffset));
         }
 
         protected abstract T self();

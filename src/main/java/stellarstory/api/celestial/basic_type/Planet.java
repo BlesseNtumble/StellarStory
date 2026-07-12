@@ -6,6 +6,7 @@ import com.google.common.collect.Sets;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.resources.ResourceLocation;
+import stellarstory.api.celestial.BodyDataHandler;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
 
@@ -20,12 +21,23 @@ public class Planet extends CelestialBody {
     public static final Codec<Planet> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("name").forGetter(CelestialBody::getName),
             ResourceLocation.CODEC.fieldOf("icon").forGetter(CelestialBody::getIcon),
-            Codec.BOOL.fieldOf("reachable").forGetter(CelestialBody::getReachable),
+            Codec.BOOL.fieldOf("reachable").forGetter(CelestialBody::isReachable),
+            BodyDataHandler.CODEC.fieldOf("data")
+                    .orElse(BodyDataHandler.DEFAULT)
+                    .forGetter(CelestialBody::getBodyDataHandler),
             ResourceLocation.CODEC.listOf().fieldOf("childs").forGetter(Planet::getChildsReferences)
-    ).apply(instance, (name, icon, reachable, childs) -> {
+    ).apply(instance, (name, icon, reachable, data, childs) -> {
         Planet.Builder builder = Planet.builder()
                 .name(name)
-                .icon(icon);
+                .icon(icon)
+                .reachable(reachable)
+
+                .dayLength(data.physicalData().dayLength())
+                .gravity(data.physicalData().gravity())
+
+                .temperature(data.atmosphereData().temperature())
+                .temperatureModificator(data.atmosphereData().temperatureModificator())
+                .temperatureOffset(data.atmosphereData().temperatureOffset());
 
         Planet planet = builder.build();
         planet.childsReferences = childs;

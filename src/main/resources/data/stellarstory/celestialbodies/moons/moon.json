@@ -1,5 +1,16 @@
 {
   "name": "moon",
-  "icon": "stellarstory:textures/icons/earth.png",
-  "reachable": true
+  "icon": "stellarstory:textures/icons/moon.png",
+  "reachable": true,
+  "data": {
+    "physical": {
+      "day_length": 12800,
+      "gravity": 0.16
+    },
+    "atmosphere": {
+      "temperature": 90.0,
+      "temperature_modificator": 3.5,
+      "temperature_offset": -195.0
+    }
+  }
 }
