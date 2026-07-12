@@ -4,7 +4,7 @@ import net.minecraft.data.PackOutput;
 import net.minecraftforge.client.model.generators.ItemModelProvider;
 import net.minecraftforge.common.data.ExistingFileHelper;
 import stellarstory.StellarStory;
-import stellarstory.common.blocks.entity.MoonBaseBlock;
+import stellarstory.common.blocks.MoonBaseBlock;
 import stellarstory.common.init.StellarBlocks;
 
 public class StellarItemModelData extends ItemModelProvider {

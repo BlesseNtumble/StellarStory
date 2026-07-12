@@ -6,7 +6,7 @@ import net.minecraftforge.client.model.generators.BlockStateProvider;
 import net.minecraftforge.client.model.generators.VariantBlockStateBuilder;
 import net.minecraftforge.common.data.ExistingFileHelper;
 import stellarstory.StellarStory;
-import stellarstory.common.blocks.entity.MoonBaseBlock;
+import stellarstory.common.blocks.MoonBaseBlock;
 import stellarstory.common.init.StellarBlocks;
 
 public class StellarBlockstatesData extends BlockStateProvider {

@@ -15,11 +15,5 @@
   "min_y": -64,
   "height": 256,
   "infiniburn": "#infiniburn_overworld",
-  "effects": "minecraft:overworld"
-
-
-
-
-
-
+  "effects": "stellarstory:moon"
 }

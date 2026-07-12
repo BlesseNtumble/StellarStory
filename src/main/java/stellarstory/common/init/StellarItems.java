@@ -1,6 +1,5 @@
 package stellarstory.common.init;
 
-import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.*;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.Block;
@@ -9,7 +8,7 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import stellarstory.StellarStory;
-import stellarstory.common.blocks.entity.MoonBaseBlock;
+import stellarstory.common.blocks.MoonBaseBlock;
 
 import java.util.ArrayList;
 import java.util.List;

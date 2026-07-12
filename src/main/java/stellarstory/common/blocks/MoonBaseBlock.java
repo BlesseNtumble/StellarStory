@@ -1,4 +1,4 @@
-package stellarstory.common.blocks.entity;
+package stellarstory.common.blocks;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
