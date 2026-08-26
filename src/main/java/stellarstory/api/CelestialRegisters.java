@@ -8,11 +8,14 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import stellarstory.api.celestial.*;
 import stellarstory.api.celestial.StarSystem;
+import stellarstory.api.celestial.basic_type.Asteroid;
+import stellarstory.api.celestial.basic_type.Comet;
 import stellarstory.api.celestial.basic_type.Planet;
 import stellarstory.api.celestial.basic_type.Star;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class CelestialRegisters {
 
@@ -60,6 +63,26 @@ public final class CelestialRegisters {
                     .findFirst();
             if (childMatch.isPresent()) {
                 return (CelestialBody) childMatch.get();
+            }
+
+            // Поиск среди астероидов (звёзд и планет)
+            Optional<Asteroid> asteroidMatch = system.getStars().stream()
+                    .flatMap(star -> Stream.concat(
+                            star.getAsteroids().stream(),
+                            star.getPlanets().stream().flatMap(planet -> planet.getAsteroids().stream())))
+                    .filter(asteroid -> name.equals(asteroid.getName()))
+                    .findFirst();
+            if (asteroidMatch.isPresent()) {
+                return asteroidMatch.get();
+            }
+
+            // Поиск среди комет
+            Optional<Comet> cometMatch = system.getStars().stream()
+                    .flatMap(star -> star.getComets().stream())
+                    .filter(comet -> name.equals(comet.getName()))
+                    .findFirst();
+            if (cometMatch.isPresent()) {
+                return cometMatch.get();
             }
         }
 

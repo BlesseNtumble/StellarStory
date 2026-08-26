@@ -46,8 +46,8 @@ public class WorldTickEvents {
         boolean valueChanged = Math.abs(target - ssd.lastSyncedTemp) > 0.05f; // порог 0.05°C
         boolean timeElapsed = ssd.syncTicks >= 100; // ~5 секунд
 
-        StellarStory.getLogger().debug("Time: %.3f | Solar: %.3f | Target: %.1f | Curr: %.1f",
-                time, solarIntensity, target, ssd.getTemperature());
+//        StellarStory.getLogger().debug(String.format("Time: %.3f | Solar: %.3f | Target: %.1f | Curr: %.1f",
+//                time, solarIntensity, target, ssd.getTemperature()));
 
         if (valueChanged || timeElapsed) {
             ssd.lastSyncedTemp = target;

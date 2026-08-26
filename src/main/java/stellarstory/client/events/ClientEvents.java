@@ -7,17 +7,20 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import stellarstory.StellarStory;
 import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
 import stellarstory.api.celestial.basic_type.Planet;
+import stellarstory.client.gui.SpaceMapScreen;
 import stellarstory.client.utils.ClientSpaceData;
+import stellarstory.data.CelestialBodyLoader;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@Mod.EventBusSubscriber(modid = StellarStory.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@Mod.EventBusSubscriber(modid = StellarStory.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class ClientEvents {
 
     private static List<String> text = new ArrayList<>();

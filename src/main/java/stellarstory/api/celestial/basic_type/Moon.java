@@ -6,6 +6,8 @@ import net.minecraft.resources.ResourceLocation;
 import stellarstory.api.celestial.BodyDataHandler;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
+import stellarstory.api.celestial.data.OrbitData;
+import stellarstory.api.celestial.data.OrbitVisual;
 
 public class Moon extends CelestialBody implements IChildBody {
 
@@ -17,26 +19,11 @@ public class Moon extends CelestialBody implements IChildBody {
             Codec.BOOL.fieldOf("reachable").forGetter(CelestialBody::isReachable),
             BodyDataHandler.CODEC.fieldOf("data")
                     .orElse(BodyDataHandler.DEFAULT)
-                    .forGetter(CelestialBody::getBodyDataHandler)
-    ).apply(instance, (name, icon, reachable, data) -> {
-        Moon.Builder builder = Moon.builder()
-                .name(name)
-                .icon(icon)
-                .reachable(reachable)
-
-                .dayLength(data.physicalData().dayLength())
-                .gravity(data.physicalData().gravity())
-
-                .temperature(data.atmosphereData().temperature())
-                .temperatureModificator(data.atmosphereData().temperatureModificator())
-                .temperatureOffset(data.atmosphereData().temperatureOffset());
-
-        Moon moon = builder.build();
-        //if(reachable)
-        //    moon.setReachable();
-
-        return moon;
-    }));
+                    .forGetter(CelestialBody::getBodyDataHandler),
+            OrbitData.CODEC.fieldOf("orbit").orElse(OrbitData.DEFAULT).forGetter(CelestialBody::getOrbit),
+            OrbitVisual.CODEC.fieldOf("orbit_visual").orElse(OrbitVisual.DEFAULT).forGetter(CelestialBody::getOrbitVisual)
+    ).apply(instance, (name, icon, reachable, data, orbit, orbitVisual) ->
+            Moon.builder().name(name).icon(icon).reachable(reachable).orbit(orbit).orbitVisual(orbitVisual).build()));
 
     public Moon(Builder builder) {
         super(builder);

@@ -3,6 +3,7 @@ package stellarstory.client.renderer.sky;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
+import com.mojang.math.Axis;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -31,12 +32,12 @@ import stellarstory.client.renderer.sky.helper.StarHelper;
 import javax.annotation.Nullable;
 
 @OnlyIn(Dist.CLIENT)
-public class CelestialSky extends DimensionSpecialEffects {
+public abstract class CelestialSky extends DimensionSpecialEffects {
 
     private static final ResourceLocation SUN_LOCATION = ResourceLocation.fromNamespaceAndPath("minecraft", "textures/environment/sun.png");
 
-    //private final VertexBuffer starBuffer = StarHelper.createStars(0.1F, 190, 160, -1);
-    private final Minecraft minecraft = Minecraft.getInstance();
+
+    protected final Minecraft minecraft = Minecraft.getInstance();
     protected StarHelper starHelper = new StarHelper();
     protected SkyHelper skyHelper = new SkyHelper();
 
@@ -70,13 +71,43 @@ public class CelestialSky extends DimensionSpecialEffects {
                     if(icon != null) {
                         float sunBrightness = 1.0F;
                         float starBrightness = minecraft.level.getStarBrightness(partialTicks) * sunBrightness + 0.5F;
-                        skyHelper.renderSky(starHelper.getStarBuffer(), matrix, poseStack, minecraft, icon, partialTicks, sunBrightness, starBrightness, setupFog);
+                        skyHelper.renderSky(starHelper.getStarBuffer(), matrix, poseStack, minecraft, icon, partialTicks, sunBrightness, starBrightness, 0.0F, setupFog);
+
+                        float timeOfDay = level.getTimeOfDay(partialTicks);
+                        float orbitPhaseOffset = 0.0F;
+                        float orbitInclination = 0.0F;
+                        skyHelper.renderAura(poseStack,
+                                0.0F, 100.0F, 0.0F,
+                                22.0F,                          // auraSize (больше scale куба = 15)
+                                1.0F, 1.0F, 1.0F,              // r, g, b (тёплый звёздный свет)
+                                1.5F, 0.6F, 4,                  // brightness, alpha, layers
+                                timeOfDay,
+                                orbitPhaseOffset, orbitInclination);
+
+                        skyHelper.renderCube(poseStack, 0.0F, 100.0F, 0.0F, 50.0F, 15.0F, 0.0F, 5.0F, 1.0F, timeOfDay, orbitPhaseOffset, orbitInclination, icon);
+
                     }
+
+                    this.renderBodySky(level, ticks, partialTicks, poseStack, camera, matrix);
+
+//                        // Orbit across the sky like the sun
+//                        poseStack.pushPose();
+//                        poseStack.mulPose(Axis.YP.rotationDegrees(-90.0F));
+//                        poseStack.mulPose(Axis.XP.rotationDegrees((minecraft.level.getTimeOfDay(partialTicks) * 360.0F) / 2F));
+//                        // Slow self-rotation on top of the orbit
+//                        float cubeRotY = (ticks + partialTicks) * 0.1F;
+//                        float cubeRotX = cubeRotY * 0.5F;
+//                        skyHelper.renderCube(poseStack, 0.0F, 100.0F, 0.0F, cubeRotX, cubeRotY, 0.0F, 15.0F, 1.0F, CUBE_TEXTURE);
+//                        poseStack.popPose();
+
                 }
             }
         }
         return true;
     }
+
+    protected abstract void renderBodySky(ClientLevel level, int ticks, float partialTicks, PoseStack poseStack,
+                                          Camera camera, Matrix4f matrix);
 
     @Nullable
     @Override

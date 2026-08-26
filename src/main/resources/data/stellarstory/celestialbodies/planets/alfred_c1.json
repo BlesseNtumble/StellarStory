@@ -1,0 +1,27 @@
+{
+  "name": "alfred_c1",
+  "icon": "stellarstory:textures/celestialbodies/gray.png",
+  "reachable": true,
+  "data": {
+    "day_length": 24000,
+    "gravity": 0.5
+  },
+  "orbit": {
+    "semi_major_axis": 10.0,
+    "period": 30000,
+    "phase": 1.5,
+    "eccentricity": 0.03,
+    "inclination": 0.5,
+    "ascending_node": 5.0
+  },
+  "orbit_visual": {
+    "spread": 1.0,
+    "thickness": 0.2,
+    "orbit_width": 1,
+    "spin_speed": 0.03,
+    "body_size": 3.0
+  },
+  "childs": [],
+  "asteroids": [],
+  "barycenter": null
+}

@@ -1,0 +1,19 @@
+{
+  "name": "halley",
+  "icon": "stellarstory:textures/celestialbodies/white.png",
+  "orbit": {
+    "semi_major_axis": 80.0,
+    "period": 150000,
+    "phase": 2.5,
+    "eccentricity": 0.9,
+    "inclination": 25.0,
+    "ascending_node": 30.0
+  },
+  "orbit_visual": {
+    "spread": 1.0,
+    "thickness": 0.2,
+    "orbit_width": 1,
+    "spin_speed": 0.05,
+    "body_size": 2.0
+  }
+}

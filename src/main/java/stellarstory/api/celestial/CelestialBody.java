@@ -3,9 +3,13 @@ package stellarstory.api.celestial;
 import com.mojang.serialization.Codec;
 import net.minecraft.resources.ResourceLocation;
 import stellarstory.api.celestial.data.AtmosphereData;
+import stellarstory.api.celestial.data.OrbitData;
+import stellarstory.api.celestial.data.OrbitVisual;
 import stellarstory.api.celestial.data.PhysicalData;
 
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public abstract class CelestialBody implements ICodecBody {
 
@@ -14,11 +18,22 @@ public abstract class CelestialBody implements ICodecBody {
     protected final BodyDataHandler bodyDataHandler;
     protected boolean isReachable;
 
+    // Physical orbit around the parent body (star, planet or barycenter)
+    protected OrbitData orbit = OrbitData.DEFAULT;
+    // Visual rendering parameters for the orbit
+    protected OrbitVisual orbitVisual = OrbitVisual.DEFAULT;
+    // Nullable — the barycenter this body orbits around instead of its direct parent
+    protected ResourceLocation barycenterReference;
+    protected Barycenter barycenter;
+
     public CelestialBody(Builder<?> builder) {
         this.name = builder.name;
         this.icon = builder.icon;
         this.isReachable = builder.reachable;
         this.bodyDataHandler = builder.buildBodyData();
+        this.orbit = builder.orbit;
+        this.orbitVisual = builder.orbitVisual;
+        this.barycenterReference = builder.barycenterReference;
     }
 
     public String getName() {
@@ -39,6 +54,33 @@ public abstract class CelestialBody implements ICodecBody {
     public BodyDataHandler getBodyDataHandler() {
         return bodyDataHandler;
     }
+
+    // Getters for orbit data
+    public OrbitData getOrbit() {
+        return orbit;
+    }
+
+    public OrbitVisual getOrbitVisual() {
+        return orbitVisual;
+    }
+
+    public ResourceLocation getBarycenterReference() {
+        return barycenterReference;
+    }
+
+    public Optional<Barycenter> getBarycenter() {
+        return Optional.ofNullable(barycenter);
+    }
+
+    public void resolveBarycenter(Map<ResourceLocation, Barycenter> barycenterMap) {
+        if (barycenterReference != null) {
+            Barycenter bc = barycenterMap.get(barycenterReference);
+            if (bc != null) {
+                this.barycenter = bc;
+            }
+        }
+    }
+
     @Override
     public boolean equals(Object obj) {
         return Objects.equals(this.getName(), ((CelestialBody) obj).getName());
@@ -63,6 +105,11 @@ public abstract class CelestialBody implements ICodecBody {
         protected float temperatureModificator = 1.0F;
         protected float temperatureOffset = 0.0F;
 
+        // orbit
+        protected OrbitData orbit = OrbitData.DEFAULT;
+        protected OrbitVisual orbitVisual = OrbitVisual.DEFAULT;
+        protected ResourceLocation barycenterReference;
+
         public T name(String name) {
             this.name = name;
             return self();
@@ -80,6 +127,21 @@ public abstract class CelestialBody implements ICodecBody {
         public T temperature(float val) { this.temperature = val; return self(); }
         public T temperatureModificator(float val) { this.temperatureModificator = val; return self(); }
         public T temperatureOffset(float val) { this.temperatureOffset = val; return self(); }
+
+        public T orbit(OrbitData orbit) {
+            this.orbit = orbit;
+            return self();
+        }
+
+        public T orbitVisual(OrbitVisual orbitVisual) {
+            this.orbitVisual = orbitVisual;
+            return self();
+        }
+
+        public T barycenterReference(ResourceLocation barycenterReference) {
+            this.barycenterReference = barycenterReference;
+            return self();
+        }
 
         protected BodyDataHandler buildBodyData() {
             return new BodyDataHandler(new PhysicalData(dayLength, gravity), new AtmosphereData(temperature, temperatureModificator, temperatureOffset));

@@ -1,0 +1,8 @@
+{
+  "name": "alfred_c",
+  "icon": "stellarstory:textures/celestialbodies/white.png",
+  "barycenter": "stellarstory:alfred_bc",
+  "planets": ["stellarstory:alfred_c1"],
+  "asteroids": [],
+  "comets": []
+}

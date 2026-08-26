@@ -1,7 +1,27 @@
 {
   "name": "mars",
-  "icon": "stellarstory:textures/icons/mars.png",
+  "icon": "stellarstory:textures/celestialbodies/mars.png",
   "reachable": true,
-  "childs": [
-  ]
+  "data": {
+    "day_length": 24500,
+    "gravity": 0.38
+  },
+  "orbit": {
+    "semi_major_axis": 50.0,
+    "period": 80000,
+    "phase": 1.57,
+    "eccentricity": 0.09,
+    "inclination": 1.85,
+    "ascending_node": 49.5
+  },
+  "orbit_visual": {
+    "spread": 0.0,
+    "thickness": 0.0,
+    "orbit_width": 1,
+    "spin_speed": 0.97,
+    "body_size": 4.0
+  },
+  "childs": [],
+  "asteroids": [],
+  "barycenter": null
 }

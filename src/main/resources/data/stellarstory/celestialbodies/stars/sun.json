@@ -4,5 +4,11 @@
   "planets": [
     "stellarstory:overworld",
     "stellarstory:mars"
+  ],
+  "asteroids": [
+    "stellarstory:ceres"
+  ],
+  "comets": [
+    "stellarstory:halley"
   ]
 }

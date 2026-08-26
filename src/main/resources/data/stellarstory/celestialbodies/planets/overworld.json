@@ -2,7 +2,28 @@
   "name": "overworld",
   "icon": "stellarstory:textures/icons/earth.png",
   "reachable": false,
+  "data": {
+    "day_length": 24000,
+    "gravity": 1.0
+  },
+  "orbit": {
+    "semi_major_axis": 30.0,
+    "period": 50000,
+    "phase": 0.0,
+    "eccentricity": 0.0,
+    "inclination": 0.0,
+    "ascending_node": 0.0
+  },
+  "orbit_visual": {
+    "spread": 0.0,
+    "thickness": 0.0,
+    "orbit_width": 1,
+    "spin_speed": 1.0,
+    "body_size": 5.0
+  },
   "childs": [
     "stellarstory:moon"
-  ]
+  ],
+  "asteroids": [],
+  "barycenter": null
 }

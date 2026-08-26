@@ -1,0 +1,35 @@
+{
+  "has_precipitation": false,
+  "temperature": -1.0,
+  "downfall": 0,
+  "effects": {
+    "sky_color": 0,
+    "water_fog_color": 329011,
+    "fog_color": 0,
+    "water_color": 4159204
+  },
+  "spawn_costs": {},
+  "spawners": {},
+  "carvers": {
+    "air": [
+      "minecraft:cave",
+      "minecraft:canyon"
+    ]
+  },
+  "features": [
+    [],
+    [],
+    [
+      "stellarstory:crater_small",
+      "stellarstory:crater_large"
+    ],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    []
+  ],
+  "starts": []
+}

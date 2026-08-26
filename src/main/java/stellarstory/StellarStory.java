@@ -1,11 +1,17 @@
 package stellarstory;
 
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.DataGenerator;
+import net.minecraft.data.PackOutput;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.data.DatapackBuiltinEntriesProvider;
 import net.minecraftforge.common.data.ExistingFileHelper;
 import net.minecraftforge.data.event.GatherDataEvent;
 import net.minecraftforge.event.server.ServerLifecycleEvent;
@@ -17,12 +23,18 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraft.core.RegistrySetBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import stellarstory.common.init.*;
+import stellarstory.common.worldgen.StellarFeatures;
+import stellarstory.common.worldgen.StellarWorldGen;
 import stellarstory.data.CelestialBodyLoader;
 import stellarstory.data.StellarBlockstatesData;
 import stellarstory.data.StellarItemModelData;
+
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 
 import java.util.Locale;
@@ -45,6 +57,7 @@ public class StellarStory {
         StellarItems.REGISTRY.register(eventBus);
         StellarBlocks.REGISTRY.register(eventBus);
         StellarTabs.REGISTRY.register(eventBus);
+        StellarFeatures.FEATURES.register(eventBus);
         StellarDimensions.DIMENSION_TYPES.register(eventBus);
         StellarDimensions.initialization();
 
@@ -108,9 +121,10 @@ public class StellarStory {
     public static Logger getLogger() {
         return LOGGER;
     }
+
     public static void addDebugMessage(String message) {
         if(!isDebug) return;
-        getLogger().debug(String.format("[%s] DEBUG: %s", MODID, message));
+        getLogger().debug("[{}] DEBUG: {}", MODID, message);
     }
 
     public static ResourceLocation prefix(String name) {
@@ -120,6 +134,7 @@ public class StellarStory {
     public void gatherData(GatherDataEvent e) {
         DataGenerator generator = e.getGenerator();
         ExistingFileHelper helper = e.getExistingFileHelper();
+        CompletableFuture<HolderLookup.Provider> lookupProvider = e.getLookupProvider();
 
 
         if(e.includeClient()) {
@@ -127,7 +142,13 @@ public class StellarStory {
             generator.addProvider(true, new StellarItemModelData(generator.getPackOutput(), helper));
         }
 
-        if(e.includeServer()) {}
+        if(e.includeServer()) {
+            RegistrySetBuilder builder = new RegistrySetBuilder()
+                    .add(Registries.CONFIGURED_FEATURE, StellarWorldGen::bootstrapConfigured)
+                    .add(Registries.PLACED_FEATURE, StellarWorldGen::bootstrapPlaced);
+            generator.addProvider(true, new DatapackBuiltinEntriesProvider(
+                    generator.getPackOutput(), lookupProvider, builder, Set.of(StellarStory.MODID)));
+        }
     }
 
 }

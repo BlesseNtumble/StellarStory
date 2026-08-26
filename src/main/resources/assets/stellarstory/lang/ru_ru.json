@@ -1,0 +1,8 @@
+{
+  "key.categories.stellarstory": "Stellar Story",
+  "key.stellarstory.open_map": "Открыть карту космоса",
+  "gui.stellarstory.space_map": "Карта космоса",
+  "gui.stellarstory.space_map.title": "Звёздная карта",
+  "gui.stellarstory.space_map.hint": "ЛКМ: Выбор | ПКМ: Вращение | СКМ: Перемещение | Колесо: Масштаб | ESC: Закрыть",
+  "gui.stellarstory.catalog.title": "КАТАЛОГ"
+}
