@@ -1,9 +1,9 @@
 {
-  "name": "ceres",
-  "icon": "stellarstory:textures/celestialbodies/gray.png",
+  "name": "asteroid_belts",
+  "icon": "stellarstory:textures/celestialbodies/white.png",
   "orbit": {
-    "semi_major_axis": 65.0,
-    "period": 110000,
+    "semi_major_axis": 85.0,
+    "period": 111,
     "phase": 3.14,
     "eccentricity": 0.02,
     "inclination": 10.59,
@@ -13,7 +13,7 @@
     "spread": 3.0,
     "thickness": 1.0,
     "orbit_width": 2,
-    "spin_speed": 0.03,
+    "spin_speed": 0.3,
     "body_size": 2.5
   }
 }

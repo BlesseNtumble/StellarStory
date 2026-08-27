@@ -1,6 +1,6 @@
 {
   "name": "overworld",
-  "icon": "stellarstory:textures/icons/earth.png",
+  "icon": "stellarstory:textures/celestialbodies/earth.png",
   "reachable": false,
   "data": {
     "day_length": 24000,

@@ -1,14 +1,16 @@
 {
   "name": "sun",
   "icon": "minecraft:textures/environment/sun.png",
+  "spectral_class": "G",
   "planets": [
     "stellarstory:overworld",
     "stellarstory:mars"
   ],
   "asteroids": [
-    "stellarstory:ceres"
+    "stellarstory:asteroid_belts"
   ],
   "comets": [
     "stellarstory:halley"
   ]
 }
+

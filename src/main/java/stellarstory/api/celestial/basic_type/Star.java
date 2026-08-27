@@ -14,6 +14,38 @@ import java.util.*;
 
 public class Star extends CelestialBody {
 
+    /** Спектральные классы звёзд с их характерными цветами. */
+    public enum SpectralClass {
+        O("O", 1.0F, 0.6F, 0.8F, "Голубой"),
+        B("B", 0.8F, 0.85F, 1.0F, "Голубовато-белый"),
+        A("A", 0.95F, 0.95F, 1.0F, "Белый"),
+        F("F", 1.0F, 0.98F, 0.85F, "Жёлто-белый"),
+        G("G", 1.0F, 0.92F, 0.6F, "Жёлтый"),
+        K("K", 1.0F, 0.75F, 0.4F, "Оранжевый"),
+        M("M", 1.0F, 0.4F, 0.25F, "Красный");
+
+        public final String symbol;
+        public final float r, g, b;
+        public final String displayName;
+
+        SpectralClass(String symbol, float r, float g, float b, String displayName) {
+            this.symbol = symbol;
+            this.r = r;
+            this.g = g;
+            this.b = b;
+            this.displayName = displayName;
+        }
+
+        /** Получить цвет звезды по символу класса. */
+        public static SpectralClass fromSymbol(String symbol) {
+            for (SpectralClass cls : values()) {
+                if (cls.symbol.equals(symbol)) return cls;
+            }
+            // По умолчанию — жёлтая звезда (как Солнце)
+            return G;
+        }
+    }
+
     public static final Codec<Star> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("name").forGetter(Star::getName),
             ResourceLocation.CODEC.fieldOf("icon").forGetter(Star::getIcon),
@@ -21,9 +53,10 @@ public class Star extends CelestialBody {
             ResourceLocation.CODEC.listOf().fieldOf("asteroids").orElse(List.of()).forGetter(Star::getAsteroidReferences),
             ResourceLocation.CODEC.listOf().fieldOf("comets").orElse(List.of()).forGetter(Star::getCometReferences),
             ResourceLocation.CODEC.fieldOf("barycenter").orElse(ResourceLocation.tryParse("null")).forGetter(Star::getBarycenterRefRaw),
+            Codec.STRING.fieldOf("spectral_class").orElse("G").forGetter(s -> s.spectralClass != null ? s.spectralClass.symbol : "G"),
             OrbitData.CODEC.fieldOf("orbit").orElse(OrbitData.DEFAULT).forGetter(Star::getOrbit),
             OrbitVisual.CODEC.fieldOf("orbit_visual").orElse(OrbitVisual.DEFAULT).forGetter(Star::getOrbitVisual)
-    ).apply(instance, (name, icon, planets, asteroids, comets, barycenterRef, orbit, orbitVisual) -> {
+    ).apply(instance, (name, icon, planets, asteroids, comets, barycenterRef, spectralClassSymbol, orbit, orbitVisual) -> {
         Star.Builder builder = Star.builder().name(name).icon(icon).orbit(orbit).orbitVisual(orbitVisual);
         if (barycenterRef != null && !barycenterRef.getPath().equals("null")) {
             builder.barycenterReference(barycenterRef);
@@ -32,6 +65,7 @@ public class Star extends CelestialBody {
         star.planetsReferences = planets;
         star.asteroidsReferences = asteroids;
         star.cometsReferences = comets;
+        star.spectralClass = SpectralClass.fromSymbol(spectralClassSymbol);
         return star;
     }));
 
@@ -42,6 +76,7 @@ public class Star extends CelestialBody {
     private List<ResourceLocation> cometsReferences = new ArrayList<>();
     private List<Asteroid> asteroids;
     private List<Comet> comets;
+    private SpectralClass spectralClass = SpectralClass.G;
 
     public Star(Builder builder) {
         super(builder);
@@ -49,6 +84,7 @@ public class Star extends CelestialBody {
         this.planets = builder.planets;
         this.asteroids = new ArrayList<>();
         this.comets = new ArrayList<>();
+        this.spectralClass = builder.spectralClass;
     }
 
 
@@ -97,6 +133,14 @@ public class Star extends CelestialBody {
         return Collections.unmodifiableList(comets);
     }
 
+    public SpectralClass getSpectralClass() {
+        return spectralClass;
+    }
+
+    public float[] getStarColor() {
+        return new float[]{spectralClass.r, spectralClass.g, spectralClass.b};
+    }
+
     ResourceLocation getBarycenterRefRaw() {
         return barycenterReference;
     }
@@ -141,6 +185,7 @@ public class Star extends CelestialBody {
         private List<Planet> planets = new ArrayList<>();
         private List<Asteroid> asteroids = new ArrayList<>();
         private List<Comet> comets = new ArrayList<>();
+        private SpectralClass spectralClass = SpectralClass.G;
 
         public Builder parentSystem(StarSystem parent_system) {
             this.parent_system = parent_system;
@@ -161,6 +206,11 @@ public class Star extends CelestialBody {
         public Builder withComet(Comet comet) {
             if (this.comets == null) this.comets = new ArrayList<>();
             this.comets.add(comet);
+            return this;
+        }
+
+        public Builder spectralClass(SpectralClass spectralClass) {
+            this.spectralClass = spectralClass;
             return this;
         }
 

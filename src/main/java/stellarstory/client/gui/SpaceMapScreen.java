@@ -91,27 +91,26 @@ public class SpaceMapScreen extends Screen {
     // ── Cached body data ──────────────────────────────────────────────────
     private static class BodyRenderInfo {
         final String name;
-        final String type;          // "planet", "moon", "asteroid", "comet"
+        final String type;          // "star", "planet", "moon", "asteroid", "comet"
         final OrbitData orbit;
         final OrbitVisual orbitVisual;
-        final float spinSpeed;      // body rotation speed (radians per tick unit)
+        final float spinSpeed;
         final float bodySize;
         final float r, g, b;
-        final net.minecraft.resources.ResourceLocation icon;  // texture path
+        final net.minecraft.resources.ResourceLocation icon;
+        final Barycenter barycenter;  // only for stars
         final List<BodyRenderInfo> children = new ArrayList<>();
 
         // ── Asteroid orbit scatter (only for type "asteroid") ────────────
-        // Small rocks spread along the entire orbit; the body itself (bodySize)
-        // is the one large selectable rock at the current orbit position.
         final int rockCount;
-        final float[] rockPhase;        // phase offset along the orbit (radians)
-        final float[] rockRadiusScale;  // radial scatter (0.85..1.15)
-        final float[] rockYOff;         // vertical scatter
+        final float[] rockPhase;
+        final float[] rockRadiusScale;
+        final float[] rockYOff;
         final float[] rockSize;
 
         BodyRenderInfo(String name, String type, OrbitData orbit, OrbitVisual orbitVisual,
                        float spinSpeed, float bodySize, float r, float g, float b,
-                       net.minecraft.resources.ResourceLocation icon) {
+                       net.minecraft.resources.ResourceLocation icon, Barycenter barycenter) {
             this.name = name;
             this.type = type;
             this.orbit = orbit;
@@ -122,27 +121,24 @@ public class SpaceMapScreen extends Screen {
             this.g = g;
             this.b = b;
             this.icon = icon;
+            this.barycenter = barycenter;
 
             if ("asteroid".equals(type)) {
                 Random rng = new Random(name.hashCode() * 31L + 7L);
-                rockCount = 14 + rng.nextInt(8);   // 14..21 small rocks along the orbit
+                rockCount = 256 + rng.nextInt(8);
                 rockPhase = new float[rockCount];
                 rockRadiusScale = new float[rockCount];
                 rockYOff = new float[rockCount];
                 rockSize = new float[rockCount];
 
-                // Belt width configurable via OrbitVisual (spread = radial, thickness = vertical)
                 float spread = orbitVisual.spread();
                 float thickness = orbitVisual.thickness();
                 float baseRadius = Math.max(0.5F, orbit.semiMajorAxis());
                 for (int i = 0; i < rockCount; i++) {
                     rockPhase[i] = (float)i / rockCount * Mth.TWO_PI + (rng.nextFloat() - 0.5F) * 0.3F;
-                    // Radial scatter: 1.0 +- spread (as a fraction of the base radius), clamped
-                    // so the rock never collapses onto the star even with large spread.
                     rockRadiusScale[i] = Mth.clamp(
                             1.0F + (rng.nextFloat() * 2.0F - 1.0F) * (spread / baseRadius),
                             0.2F, 3.0F);
-                    // Vertical scatter: +- thickness in map units
                     rockYOff[i] = (rng.nextFloat() * 2.0F - 1.0F) * thickness;
                     rockSize[i] = 0.4F + rng.nextFloat() * 0.5F;
                 }
@@ -156,41 +152,12 @@ public class SpaceMapScreen extends Screen {
         }
     }
 
-    private static class StarRenderInfo {
-        final String name;
-        final float r, g, b;
-        final float size;
-        final OrbitData orbit;         // used only when barycenter != null
-        final OrbitVisual orbitVisual; // visual orbit parameters
-        final Barycenter barycenter;   // nullable — orbit centre override
-        final float spinSpeed;         // star rotation speed
-        final net.minecraft.resources.ResourceLocation icon;  // texture path
-        final List<BodyRenderInfo> planets = new ArrayList<>();
-        final List<BodyRenderInfo> asteroids = new ArrayList<>();
-        final List<BodyRenderInfo> comets = new ArrayList<>();
-
-        StarRenderInfo(String name, float r, float g, float b, float size,
-                       OrbitData orbit, OrbitVisual orbitVisual, Barycenter barycenter,
-                       float spinSpeed, net.minecraft.resources.ResourceLocation icon) {
-            this.name = name;
-            this.r = r;
-            this.g = g;
-            this.b = b;
-            this.size = size;
-            this.orbit = orbit;
-            this.orbitVisual = orbitVisual;
-            this.barycenter = barycenter;
-            this.spinSpeed = spinSpeed;
-            this.icon = icon;
-        }
-    }
-
     /** A star system with its galactic position. */
     private static class SystemRenderInfo {
         final String name;
-        final double worldX, worldY, worldZ;   // galactic coordinates
+        final double worldX, worldY, worldZ;
         final List<Barycenter> barycenters = new ArrayList<>();
-        final List<StarRenderInfo> stars = new ArrayList<>();
+        final List<BodyRenderInfo> stars = new ArrayList<>();
 
         SystemRenderInfo(String name, double wx, double wy, double wz) {
             this.name = name;
@@ -237,44 +204,27 @@ public class SpaceMapScreen extends Screen {
         catalog.clear();
 
         for (SystemRenderInfo sys : systems) {
-            for (StarRenderInfo star : sys.stars) {
-                // Star color
+            for (BodyRenderInfo star : sys.stars) {
                 int starColor = 0xFF000000
                         | ((int)(star.r * 255) << 16)
                         | ((int)(star.g * 255) << 8)
                         | (int)(star.b * 255);
-                catalog.add(new CatalogEntry(star.name, starColor, "star"));
+                catalog.add(new CatalogEntry(star.name, starColor, star.type));
 
-                for (BodyRenderInfo planet : star.planets) {
-                    int planetColor = 0xFF000000
-                            | ((int)(planet.r * 255) << 16)
-                            | ((int)(planet.g * 255) << 8)
-                            | (int)(planet.b * 255);
-                    catalog.add(new CatalogEntry(planet.name, planetColor, "planet"));
+                for (BodyRenderInfo child : star.children) {
+                    int childColor = 0xFF000000
+                            | ((int)(child.r * 255) << 16)
+                            | ((int)(child.g * 255) << 8)
+                            | (int)(child.b * 255);
+                    catalog.add(new CatalogEntry(child.name, childColor, child.type));
 
-                    for (BodyRenderInfo child : planet.children) {
-                        int childColor = 0xFF000000
-                                | ((int)(child.r * 255) << 16)
-                                | ((int)(child.g * 255) << 8)
-                                | (int)(child.b * 255);
-                        catalog.add(new CatalogEntry(child.name, childColor, child.type));
+                    for (BodyRenderInfo grandchild : child.children) {
+                        int gcColor = 0xFF000000
+                                | ((int)(grandchild.r * 255) << 16)
+                                | ((int)(grandchild.g * 255) << 8)
+                                | (int)(grandchild.b * 255);
+                        catalog.add(new CatalogEntry(grandchild.name, gcColor, grandchild.type));
                     }
-                }
-
-                for (BodyRenderInfo asteroid : star.asteroids) {
-                    int aColor = 0xFF000000
-                            | ((int)(asteroid.r * 255) << 16)
-                            | ((int)(asteroid.g * 255) << 8)
-                            | (int)(asteroid.b * 255);
-                    catalog.add(new CatalogEntry(asteroid.name, aColor, asteroid.type));
-                }
-
-                for (BodyRenderInfo comet : star.comets) {
-                    int cColor = 0xFF000000
-                            | ((int)(comet.r * 255) << 16)
-                            | ((int)(comet.g * 255) << 8)
-                            | (int)(comet.b * 255);
-                    catalog.add(new CatalogEntry(comet.name, cColor, comet.type));
                 }
             }
         }
@@ -297,31 +247,39 @@ public class SpaceMapScreen extends Screen {
                 Star star = system.getStars().get(si);
                 Barycenter barycenter = star.getBarycenter().orElse(null);
 
-                StarRenderInfo starInfo = new StarRenderInfo(
-                        star.getName(),
-                        1.0F, 0.85F + (si * 0.07F) % 0.15F, 0.5F + (si * 0.11F) % 0.3F,
-                        8.0F,
-                        star.getOrbit(),
-                        star.getOrbitVisual(),
-                        barycenter,
-                        0.05F + si * 0.02F,
-                        star.getIcon()
+                // Цвет звезды по спектральному классу
+                Star.SpectralClass spectralClass = star.getSpectralClass();
+                float sr = spectralClass.r;
+                float sg = spectralClass.g;
+                float sb = spectralClass.b;
+
+                BodyRenderInfo starInfo = new BodyRenderInfo(
+                        star.getName(), "star",
+                        star.getOrbit(), star.getOrbitVisual(),
+                        0.05F + si * 0.02F, 8.0F, sr, sg, sb,
+                        star.getIcon(), barycenter
                 );
 
                 // Planets
                 List<Planet> planets = star.getPlanets();
-                int planetCount = planets.size();
-                for (int pi = 0; pi < planetCount; pi++) {
+                for (int pi = 0; pi < planets.size(); pi++) {
                     Planet planet = planets.get(pi);
 
-                    float pr = 0.3F + ((planet.hashCode() & 0xFF) % 100) / 100.0F * 0.7F;
-                    float pg = 0.3F + ((planet.hashCode() >> 8 & 0xFF) % 100) / 100.0F * 0.7F;
-                    float pb = 0.3F + ((planet.hashCode() >> 16 & 0xFF) % 100) / 100.0F * 0.7F;
+                    float pr = planet.getOrbitVisual().bodySize() / 10.0F;
+                    float pg = planet.getOrbitVisual().spinSpeed() / 2.0F;
+                    float pb = 0.5F;
+
+                    String pName = planet.getName().toLowerCase();
+                    if (pName.contains("mars")) {
+                        pr = 0.8F; pg = 0.3F; pb = 0.2F;
+                    } else if (pName.contains("earth") || pName.contains("overworld")) {
+                        pr = 0.2F; pg = 0.4F; pb = 0.8F;
+                    }
 
                     BodyRenderInfo planetInfo = new BodyRenderInfo(
                             planet.getName(), "planet", planet.getOrbit(), planet.getOrbitVisual(),
                             0.9F + pi * 0.2F, 5.0F, pr, pg, pb,
-                            planet.getIcon()
+                            planet.getIcon(), null
                     );
 
                     // Moons
@@ -334,12 +292,12 @@ public class SpaceMapScreen extends Screen {
                             planetInfo.children.add(new BodyRenderInfo(
                                     moon.getName(), "moon", moon.getOrbit(), moon.getOrbitVisual(),
                                     0.5F + ((moon.hashCode() >> 4 & 0xF)) / 10.0F, 2.0F, mr, mg, mb,
-                                    moon.getIcon()
+                                    moon.getIcon(), null
                             ));
                         }
                     }
 
-                    // Asteroids orbiting the planet (Phobos/Deimos style)
+                    // Asteroids orbiting the planet
                     for (Asteroid asteroid : planet.getAsteroids()) {
                         float ar = 0.45F + ((asteroid.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
                         float ag = 0.42F + ((asteroid.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
@@ -348,11 +306,11 @@ public class SpaceMapScreen extends Screen {
                         planetInfo.children.add(new BodyRenderInfo(
                                 asteroid.getName(), "asteroid", asteroid.getOrbit(), asteroid.getOrbitVisual(),
                                 1.5F + ((asteroid.hashCode() >> 6 & 0xF)) / 5.0F, 2.6F, ar, ag, ab,
-                                asteroid.getIcon()
+                                asteroid.getIcon(), null
                         ));
                     }
 
-                    starInfo.planets.add(planetInfo);
+                    starInfo.children.add(planetInfo);
                 }
 
                 // Asteroids orbiting the star directly
@@ -361,19 +319,19 @@ public class SpaceMapScreen extends Screen {
                     float ag = 0.42F + ((asteroid.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
                     float ab = 0.38F + ((asteroid.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
 
-                    starInfo.asteroids.add(new BodyRenderInfo(
+                    starInfo.children.add(new BodyRenderInfo(
                             asteroid.getName(), "asteroid", asteroid.getOrbit(), asteroid.getOrbitVisual(),
                             1.5F + ((asteroid.hashCode() >> 6 & 0xF)) / 5.0F, 2.8F, ar, ag, ab,
-                            asteroid.getIcon()
+                            asteroid.getIcon(), null
                     ));
                 }
 
                 // Comets
                 for (Comet comet : star.getComets()) {
-                    starInfo.comets.add(new BodyRenderInfo(
+                    starInfo.children.add(new BodyRenderInfo(
                             comet.getName(), "comet", comet.getOrbit(), comet.getOrbitVisual(),
                             1.0F, 2.2F, 0.7F, 0.85F, 1.0F,
-                            comet.getIcon()
+                            comet.getIcon(), null
                     ));
                 }
 
@@ -417,7 +375,7 @@ public class SpaceMapScreen extends Screen {
         List<CubeRenderData> cubes = new ArrayList<>();
 
         for (SystemRenderInfo sys : systems) {
-            for (StarRenderInfo star : sys.stars) {
+            for (BodyRenderInfo star : sys.stars) {
                 // Orbit ring for a star orbiting a barycenter
                 if (star.barycenter != null) {
                     float bcx = (float)sys.worldX + (float)star.barycenter.getX();
@@ -429,109 +387,110 @@ public class SpaceMapScreen extends Screen {
                 float[] starW = starWorldPos(sys, star);
                 float starWX = starW[0], starWY = starW[1], starWZ = starW[2];
 
-                // Glow layers (2D, drawn in this pass)
                 renderStarGlow(guiGraphics, star, starWX, starWY, starWZ, half);
 
                 // Star cube is emissive — it is its own light source
-                cubes.add(new CubeRenderData(starWX, starWY, starWZ, star.size,
-                        star.r, star.g, star.b, 0.0F, 0.0F, 0.0F, 0.5F,
+                cubes.add(new CubeRenderData(starWX, starWY, starWZ, star.bodySize,
+                        star.r, star.g, star.b,
+                        0.0F, 0.0F, 1.0F, 0.5F, 0.0F, 1.0F, 0.0F,
                         true, star.icon));
 
                 // ── Planets with Lambertian lighting from their star ─────
-                for (BodyRenderInfo planet : star.planets) {
+                for (BodyRenderInfo planet : star.children) {
+                    if (!"planet".equals(planet.type)) continue;
+
                     float[] pw = bodyWorldPos(starWX, starWY, starWZ, planet);
                     float planetWX = pw[0], planetWY = pw[1], planetWZ = pw[2];
 
                     drawOrbitRing(guiGraphics, starWX, starWY, starWZ, planet.orbit, planet.orbitVisual, rgba(0.3F, 0.4F, 0.6F, 0.5F));
 
-                    // Direction from planet toward the star (normalized)
-                    float[] light = dirTo(planetWX, planetWY, planetWZ, starWX, starWY, starWZ);
+                    float[] light = dirTo(starWX, starWY, starWZ, planetWX, planetWY, planetWZ);
 
                     cubes.add(new CubeRenderData(planetWX, planetWY, planetWZ, planet.bodySize,
-                            planet.r, planet.g, planet.b, light[0], light[1], light[2], 0.3F,
+                            planet.r, planet.g, planet.b, light[0], light[1], light[2],
+                            planet.spinSpeed, 0.0F, 1.0F, 0.0F,
                             false, planet.icon));
 
-                    // ── Moons & planet-asteroids orbiting the planet ─────
+                    // Children (moons, planet asteroids)
                     for (BodyRenderInfo child : planet.children) {
                         float[] cw = bodyWorldPos(planetWX, planetWY, planetWZ, child);
 
-                        if ("asteroid".equals(child.type)) {
-                            // Small rocks spread along the child's orbit
+                        if ("moon".equals(child.type)) {
+                            float[] cl = dirTo(starWX, starWY, starWZ, cw[0], cw[1], cw[2]);
+
+                            cubes.add(new CubeRenderData(cw[0], cw[1], cw[2], child.bodySize,
+                                    child.r, child.g, child.b, cl[0], cl[1], cl[2], 0.2F,
+                                    0.0F, 1.0F, 0.0F,
+                                    false, child.icon));
+                        } else if ("asteroid".equals(child.type)) {
                             for (int ri = 0; ri < child.rockCount; ri++) {
-                                float[] ro = orbitOffset(child.orbit, this.timeOfDay,
+                                float[] ro = orbitOffset(child.orbit, this.timeOfDay * 24000.0F,
                                         child.rockPhase[ri], child.rockRadiusScale[ri], child.rockYOff[ri]);
                                 float rx = planetWX + ro[0];
                                 float ry = planetWY + ro[1];
                                 float rz = planetWZ + ro[2];
-                                float[] cl = dirTo(rx, ry, rz, starWX, starWY, starWZ);
+                                float[] cl = dirTo(starWX, starWY, starWZ, rx, ry, rz);
                                 cubes.add(new CubeRenderData(rx, ry, rz, child.rockSize[ri],
                                         child.r, child.g, child.b, cl[0], cl[1], cl[2], 0.3F,
+                                        0.0F, 1.0F, 0.0F,
                                         false, child.icon));
                             }
-                            // The selectable asteroid itself — the one large rock
-                            float[] cl2 = dirTo(cw[0], cw[1], cw[2], starWX, starWY, starWZ);
-                            cubes.add(new CubeRenderData(cw[0], cw[1], cw[2], child.bodySize,
-                                    child.r, child.g, child.b, cl2[0], cl2[1], cl2[2], 0.3F,
-                                    false, child.icon));
-                        } else {
-                            drawOrbitRing(guiGraphics, planetWX, planetWY, planetWZ, child.orbit, child.orbitVisual,
-                                    rgba(0.5F, 0.5F, 0.5F, 0.15F));
-
-                            // Direction from the child toward the star (not the parent planet)
-                            float[] cl = dirTo(cw[0], cw[1], cw[2], starWX, starWY, starWZ);
+                            float[] cl = dirTo(starWX, starWY, starWZ, cw[0], cw[1], cw[2]);
 
                             cubes.add(new CubeRenderData(cw[0], cw[1], cw[2], child.bodySize,
                                     child.r, child.g, child.b, cl[0], cl[1], cl[2], 0.2F,
+                                    0.0F, 1.0F, 0.0F,
                                     false, child.icon));
                         }
                     }
                 }
 
-                // ── Asteroids: small rocks along the orbit + one large selectable rock ──
-                for (BodyRenderInfo asteroid : star.asteroids) {
+                // ── Asteroids orbiting the star directly ──────────────────
+                for (BodyRenderInfo asteroid : star.children) {
+                    if (!"asteroid".equals(asteroid.type)) continue;
+
                     float[] aw = bodyWorldPos(starWX, starWY, starWZ, asteroid);
 
-                    // Small rocks spread along the whole orbit
                     for (int ri = 0; ri < asteroid.rockCount; ri++) {
-                        float[] ro = orbitOffset(asteroid.orbit, this.timeOfDay,
+                        float[] ro = orbitOffset(asteroid.orbit, this.timeOfDay * 24000.0F,
                                 asteroid.rockPhase[ri], asteroid.rockRadiusScale[ri], asteroid.rockYOff[ri]);
                         float rx = starWX + ro[0];
                         float ry = starWY + ro[1];
                         float rz = starWZ + ro[2];
-                        float[] al = dirTo(rx, ry, rz, starWX, starWY, starWZ);
+                        float[] al = dirTo(starWX, starWY, starWZ, rx, ry, rz);
                         cubes.add(new CubeRenderData(rx, ry, rz, asteroid.rockSize[ri],
                                 asteroid.r, asteroid.g, asteroid.b, al[0], al[1], al[2], 0.3F,
+                                0.0F, 1.0F, 0.0F,
                                 false, asteroid.icon));
                     }
 
-                    // The selectable asteroid itself — the one large rock
-                    float[] al2 = dirTo(aw[0], aw[1], aw[2], starWX, starWY, starWZ);
+                    float[] al2 = dirTo(starWX, starWY, starWZ, aw[0], aw[1], aw[2]);
                     cubes.add(new CubeRenderData(aw[0], aw[1], aw[2], asteroid.bodySize,
                             asteroid.r, asteroid.g, asteroid.b, al2[0], al2[1], al2[2], 0.3F,
+                            0.0F, 1.0F, 0.0F,
                             false, asteroid.icon));
                 }
 
-                // ── Comets: elongated orbit + tail ──────────────────────
-                for (BodyRenderInfo comet : star.comets) {
+                // ── Comets ────────────────────────────────────────────────
+                for (BodyRenderInfo comet : star.children) {
+                    if (!"comet".equals(comet.type)) continue;
+
                     float[] cw = bodyWorldPos(starWX, starWY, starWZ, comet);
 
+                    // Draw comet orbit
                     drawOrbitRing(guiGraphics, starWX, starWY, starWZ, comet.orbit, comet.orbitVisual,
                             rgba(0.4F, 0.7F, 1.0F, 0.6F));
 
-                    renderCometTail(guiGraphics, starWX, starWY, starWZ, cw[0], cw[1], cw[2]);
-
-                    float[] cl = dirTo(cw[0], cw[1], cw[2], starWX, starWY, starWZ);
+                    float[] cl = dirTo(starWX, starWY, starWZ, cw[0], cw[1], cw[2]);
 
                     cubes.add(new CubeRenderData(cw[0], cw[1], cw[2], comet.bodySize,
                             comet.r, comet.g, comet.b, cl[0], cl[1], cl[2], 0.2F,
-                            false, comet.icon));
+                            0.0F, 1.0F, 0.0F, false, comet.icon));
                 }
             }
         }
 
-        // ── 3D pass: spinning, star-lit cubes ──────────────────────────
-        // Flush the 2D pass so orbit rings & star glows stay behind the cubes,
-        // otherwise they would be batched and drawn on top of the 3D geometry.
+        // ── 3D pass: draw all cubes ──────────────────────────────────
         guiGraphics.flush();
 
         // View-space depth range over all face vertices (from projectToScreen).
@@ -729,7 +688,7 @@ public class SpaceMapScreen extends Screen {
     }
 
     /** Render a star's glow layers at a world position (the core cube is drawn in the 3D pass). */
-    private void renderStarGlow(GuiGraphics guiGraphics, StarRenderInfo star,
+    private void renderStarGlow(GuiGraphics guiGraphics, BodyRenderInfo star,
                                 double worldX, double worldY, double worldZ, float half) {
         float[] s = toScreen((float)worldX, (float)worldY, (float)worldZ, half);
         float sx = s[0], sy = s[1];
@@ -737,7 +696,7 @@ public class SpaceMapScreen extends Screen {
         // Glow layers (outer to inner)
         int layers = 3;
         for (int layer = layers - 1; layer >= 0; layer--) {
-            float radius = star.size * (0.6F + layer * 0.5F);
+            float radius = star.bodySize * (0.6F + layer * 0.5F);
             int alpha = (int) (30 * (1.0F - (float) layer / layers));
             int color = (alpha << 24) | ((int)(star.r * 255) << 16) | ((int)(star.g * 255) << 8) | (int)(star.b * 255);
             int r = (int) radius + 1;
@@ -845,7 +804,8 @@ public class SpaceMapScreen extends Screen {
             float rz = vz + sinA * vz_c + (1.0F - cosA) * az_vc;
 
             // Lambertian: brightness based on dot(normal, lightDir)
-            float dot = rx * cube.lightX + ry * cube.lightY + rz * cube.lightZ;
+            // lightDir is from star toward planet, normals point outward from cube center
+            float dot = -(rx * cube.lightX + ry * cube.lightY + rz * cube.lightZ);
             float bri = cube.emissive ? 1.0F : 0.1F + 0.8F * Math.max(0.0F, dot);
             int br = (int)(bri * 255.0F);
             int cr = (int)(cube.r * br);
@@ -867,6 +827,11 @@ public class SpaceMapScreen extends Screen {
     /** Pack r/g/b/a floats into ARGB int. */
     private static int rgba(float r, float g, float b, float a) {
         return ((int)(a * 255) << 24) | ((int)(r * 255) << 16) | ((int)(g * 255) << 8) | (int)(b * 255);
+    }
+
+    /** Получить цвет звезды по её спектральному классу. */
+    private float[] starColor(BodyRenderInfo star) {
+        return new float[]{star.r, star.g, star.b};
     }
 
     /**
@@ -932,9 +897,9 @@ public class SpaceMapScreen extends Screen {
     }
 
     /** World position of a star at current time (may orbit a barycenter). */
-    private float[] starWorldPos(SystemRenderInfo sys, StarRenderInfo star) {
+    private float[] starWorldPos(SystemRenderInfo sys, BodyRenderInfo star) {
         if (star.barycenter != null) {
-            float[] off = orbitOffset(star.orbit, this.timeOfDay);
+            float[] off = orbitOffset(star.orbit, this.timeOfDay * 24000.0F);
             return new float[]{
                     (float)sys.worldX + (float)star.barycenter.getX() + off[0],
                     (float)sys.worldY + (float)star.barycenter.getY() + off[1],
@@ -946,7 +911,7 @@ public class SpaceMapScreen extends Screen {
 
     /** World position of a body orbiting around the parent point (px, py, pz). */
     private float[] bodyWorldPos(float px, float py, float pz, BodyRenderInfo body) {
-        float[] off = orbitOffset(body.orbit, this.timeOfDay);
+        float[] off = orbitOffset(body.orbit, this.timeOfDay * 24000.0F);
         return new float[]{px + off[0], py + off[1], pz + off[2]};
     }
 
@@ -964,11 +929,12 @@ public class SpaceMapScreen extends Screen {
      */
     private float[] findBodyWorldPos(String name) {
         for (SystemRenderInfo sys : systems) {
-            for (StarRenderInfo star : sys.stars) {
+            for (BodyRenderInfo star : sys.stars) {
                 float[] starW = starWorldPos(sys, star);
                 if (star.name.equals(name)) return starW;
 
-                for (BodyRenderInfo planet : star.planets) {
+                for (BodyRenderInfo planet : star.children) {
+                    if (!"planet".equals(planet.type)) continue;
                     float[] pw = bodyWorldPos(starW[0], starW[1], starW[2], planet);
                     if (planet.name.equals(name)) return pw;
 
@@ -978,12 +944,14 @@ public class SpaceMapScreen extends Screen {
                     }
                 }
 
-                for (BodyRenderInfo asteroid : star.asteroids) {
+                for (BodyRenderInfo asteroid : star.children) {
+                    if (!"asteroid".equals(asteroid.type)) continue;
                     float[] aw = bodyWorldPos(starW[0], starW[1], starW[2], asteroid);
                     if (asteroid.name.equals(name)) return aw;
                 }
 
-                for (BodyRenderInfo comet : star.comets) {
+                for (BodyRenderInfo comet : star.children) {
+                    if (!"comet".equals(comet.type)) continue;
                     float[] cw = bodyWorldPos(starW[0], starW[1], starW[2], comet);
                     if (comet.name.equals(name)) return cw;
                 }
@@ -1042,13 +1010,13 @@ public class SpaceMapScreen extends Screen {
         String closest = null;
 
         for (SystemRenderInfo sys : systems) {
-            for (StarRenderInfo star : sys.stars) {
+            for (BodyRenderInfo star : sys.stars) {
                 float[] starW = starWorldPos(sys, star);
                 float[] s = toScreen(starW[0], starW[1], starW[2], half);
                 float d = dst(mouseX, mouseY, s[0], s[1]);
                 if (d < closestDist) { closestDist = d; closest = star.name; }
 
-                for (BodyRenderInfo planet : star.planets) {
+                for (BodyRenderInfo planet : star.children) {
                     float[] pw = bodyWorldPos(starW[0], starW[1], starW[2], planet);
                     float[] s2 = toScreen(pw[0], pw[1], pw[2], half);
                     d = dst(mouseX, mouseY, s2[0], s2[1]);
@@ -1062,14 +1030,16 @@ public class SpaceMapScreen extends Screen {
                     }
                 }
 
-                for (BodyRenderInfo asteroid : star.asteroids) {
+                for (BodyRenderInfo asteroid : star.children) {
+                    if (!"asteroid".equals(asteroid.type)) continue;
                     float[] aw = bodyWorldPos(starW[0], starW[1], starW[2], asteroid);
                     float[] s4 = toScreen(aw[0], aw[1], aw[2], half);
                     d = dst(mouseX, mouseY, s4[0], s4[1]);
                     if (d < closestDist) { closestDist = d; closest = asteroid.name; }
                 }
 
-                for (BodyRenderInfo comet : star.comets) {
+                for (BodyRenderInfo comet : star.children) {
+                    if (!"comet".equals(comet.type)) continue;
                     float[] cw = bodyWorldPos(starW[0], starW[1], starW[2], comet);
                     float[] s5 = toScreen(cw[0], cw[1], cw[2], half);
                     d = dst(mouseX, mouseY, s5[0], s5[1]);
@@ -1197,7 +1167,7 @@ public class SpaceMapScreen extends Screen {
         SelectedBody closest = null;
 
         for (SystemRenderInfo sys : systems) {
-            for (StarRenderInfo star : sys.stars) {
+            for (BodyRenderInfo star : sys.stars) {
                 float[] starW = starWorldPos(sys, star);
                 float[] s = toScreen(starW[0], starW[1], starW[2], 0);
                 float d = dst(sx, sy, s[0], s[1]);
@@ -1206,7 +1176,7 @@ public class SpaceMapScreen extends Screen {
                     closest = new SelectedBody(star.name, "star", starW[0], starW[1], starW[2]);
                 }
 
-                for (BodyRenderInfo planet : star.planets) {
+                for (BodyRenderInfo planet : star.children) {
                     float[] pw = bodyWorldPos(starW[0], starW[1], starW[2], planet);
                     float[] s2 = toScreen(pw[0], pw[1], pw[2], 0);
                     d = dst(sx, sy, s2[0], s2[1]);
@@ -1226,7 +1196,8 @@ public class SpaceMapScreen extends Screen {
                     }
                 }
 
-                for (BodyRenderInfo asteroid : star.asteroids) {
+                for (BodyRenderInfo asteroid : star.children) {
+                    if (!"asteroid".equals(asteroid.type)) continue;
                     float[] aw = bodyWorldPos(starW[0], starW[1], starW[2], asteroid);
                     float[] s4 = toScreen(aw[0], aw[1], aw[2], 0);
                     d = dst(sx, sy, s4[0], s4[1]);
@@ -1236,7 +1207,8 @@ public class SpaceMapScreen extends Screen {
                     }
                 }
 
-                for (BodyRenderInfo comet : star.comets) {
+                for (BodyRenderInfo comet : star.children) {
+                    if (!"comet".equals(comet.type)) continue;
                     float[] cw = bodyWorldPos(starW[0], starW[1], starW[2], comet);
                     float[] s5 = toScreen(cw[0], cw[1], cw[2], 0);
                     d = dst(sx, sy, s5[0], s5[1]);
@@ -1358,3 +1330,5 @@ public class SpaceMapScreen extends Screen {
         }
     }
 }
+
+
