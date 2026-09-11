@@ -3,15 +3,36 @@ package stellarstory.api;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.dimension.LevelStem;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraftforge.network.PacketDistributor;
+import stellarstory.StellarStory;
 import stellarstory.api.celestial.*;
 import stellarstory.api.celestial.StarSystem;
-import stellarstory.api.celestial.basic_type.Asteroid;
-import stellarstory.api.celestial.basic_type.Comet;
-import stellarstory.api.celestial.basic_type.Planet;
-import stellarstory.api.celestial.basic_type.Star;
+import stellarstory.api.celestial.basic_type.*;
+import stellarstory.common.capability.PlayerCapability;
+import stellarstory.common.init.StellarCapabilities;
+import stellarstory.common.init.StellarDimensions;
+import stellarstory.common.level.StationBuildData;
+import stellarstory.common.worldgen.StationChunkGenerator;
+import stellarstory.network.NetworkHandler;
+import stellarstory.network.packet.client.SyncStationUnlockPacket;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,11 +40,24 @@ import java.util.stream.Stream;
 
 public final class CelestialRegisters {
 
-    private static Map<ResourceLocation, StarSystem> STAR_SYSTEMS = new HashMap<>();
+
+    private static final Map<ResourceLocation, StarSystem> STAR_SYSTEMS = Maps.newHashMap();
+    private static final Map<ResourceLocation, Station> STATIONS = Maps.newHashMap();
     private static CelestialBody EMPTY = Star.builder().build();
+
+    private static final BlockPos ORIGIN = new BlockPos(0, 64, 0);
+
+    public static void reset() {
+        STAR_SYSTEMS.clear();
+        STATIONS.clear();
+    }
 
     public static void registerStarSystem(ResourceLocation rl, StarSystem star_system){
         STAR_SYSTEMS.put(rl, star_system);
+    }
+
+    public static void registerStation(ResourceLocation id, Station station) {
+        STATIONS.put(id, station);
     }
 
     public static CelestialBody getCelestialBodyFromPlayer(Player player) {
@@ -133,7 +167,67 @@ public final class CelestialRegisters {
                 .collect(ImmutableSet.toImmutableSet()));
     }
 
-    public static ResourceLocation prefix(String modid, String name) {
-        return ResourceLocation.fromNamespaceAndPath(modid, name.toLowerCase(Locale.ROOT));
+
+    public static ResourceLocation getId(CelestialBody body) {
+        return ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, body.getName().toLowerCase(Locale.ROOT));
+    }
+
+    public static void unlock(ServerPlayer player, Station station) {
+        station.unlockForPlayer(player.getUUID());
+        ServerLevel level = player.server.getLevel(station.getDimensionKey());
+        if (level != null) buildOnce(level, station);
+
+        // Синхронизируем с клиентом
+        NetworkHandler.PACKET_HANDLER.send(PacketDistributor.PLAYER.with(()->player), new SyncStationUnlockPacket(player.getUUID(), station.getName(), true));
+
+        // Обновляем карту
+        // (можно отправить пакет клиенту, чтобы перерисовать карту)
+    }
+
+    /** Проверка условий (пример) */
+    public static boolean canUnlock(ServerPlayer player, Station station) {
+        PlayerCapability cap = player.getCapability(StellarCapabilities.PLAYER_CAPABILITY).orElse(null);
+        if (cap == null) return false;
+
+        return true;
+    }
+
+    public static boolean teleportToStation(ServerPlayer player, Station station) {
+        ServerLevel level = player.server.getLevel(station.getDimensionKey());
+        if (level == null) { // измерения нет в датапаке
+            StellarStory.getLogger().error("Station {} has no dimension {}", station.getName(), station.getDimensionId());
+            return false;
+        }
+        player.changeDimension(level);
+        player.setPos(0.0, 64.0, 0.0);
+        player.connection.teleport(0.0, 64.0, 0.0, player.getYRot(), player.getXRot());
+        return true;
+    }
+
+    public static void buildOnce(ServerLevel level, Station station) {
+        StationBuildData data = StationBuildData.get(level);
+        if (data.isBuilt()) return;
+
+        StructureTemplate template = level.getServer().getStructureManager()
+                .get(station.getTemplate()).orElse(null);
+        if (template == null) {
+            StellarStory.getLogger().error("Station {}: template {} not found",
+                    station.getName(), station.getTemplate());
+            return;
+        }
+
+        // Чанки под шаблоном должны быть загружены до расстановки блоков
+        BlockPos size = (BlockPos) template.getSize();
+        int minCX = ORIGIN.getX() >> 4, maxCX = (ORIGIN.getX() + size.getX()) >> 4;
+        int minCZ = ORIGIN.getZ() >> 4, maxCZ = (ORIGIN.getZ() + size.getZ()) >> 4;
+        for (int cx = minCX; cx <= maxCX; cx++)
+            for (int cz = minCZ; cz <= maxCZ; cz++)
+                level.getChunk(cx, cz);
+
+        template.placeInWorld(level, ORIGIN, ORIGIN, new StructurePlaceSettings(),
+                RandomSource.create(level.getSeed()), 3);
+
+        data.built = true;
+        data.setDirty();
     }
 }

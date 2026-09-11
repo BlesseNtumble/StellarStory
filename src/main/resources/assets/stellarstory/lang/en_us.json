@@ -1,8 +1,22 @@
 {
   "key.categories.stellarstory": "Stellar Story",
   "key.stellarstory.open_map": "Open Space Map",
+  "key.stellarstory.open_suit_inventory": "Open Suit Inventory",
   "gui.stellarstory.space_map": "Space Map",
   "gui.stellarstory.space_map.title": "Star Map",
   "gui.stellarstory.space_map.hint": "LMB: Select | RMB: Rotate | MMB: Pan | Scroll: Zoom | ESC: Close",
-  "gui.stellarstory.catalog.title": "CATALOG"
+  "gui.stellarstory.catalog.title": "CATALOG",
+  "container.stellarstory.suit_inventory": "Space Suit Inventory",
+  "gui.stellarstory.suit_tab": "Suit",
+  "gui.stellarstory.suit_tab.tooltip": "Click to open suit equipment slots",
+  "gui.stellarstory.inventory_tab": "Inventory",
+  "gui.stellarstory.suit_inventory_title": "Space Suit Equipment",
+  "gui.stellarstory.suit_hint": "Right-click to swap items",
+  "tooltip.stellarstory.equip_slot.helmet": "Helmet",
+  "tooltip.stellarstory.equip_slot.chestplate": "Chest",
+  "tooltip.stellarstory.equip_slot.leggings": "Legs",
+  "tooltip.stellarstory.equip_slot.boots": "Boots",
+  "tooltip.stellarstory.equip_slot.oxygen_tank": "Oxygen Tank",
+  "tooltip.stellarstory.equip_slot.scanner": "Scanner",
+  "tooltip.stellarstory.equip_slot.thermal_regulator": "Thermal Regulator"
 }

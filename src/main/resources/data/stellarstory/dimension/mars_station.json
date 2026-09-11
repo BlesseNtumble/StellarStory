@@ -1,0 +1,10 @@
+{
+  "type": "stellarstory:station_type",
+  "generator": {
+    "type": "stellarstory:station_chunk_generator",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "minecraft:the_void"
+    }
+  }
+}

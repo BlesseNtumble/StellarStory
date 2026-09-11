@@ -29,9 +29,10 @@ public class LivingTickEvents {
         Entity entity = event.getEntity();
 
         CelestialBody body = CelestialRegisters.getCelestialBodyFromLevel(entity.level());
-        if(body.isReachable()) {
-            applyCustomGravity(entity, body.getBodyDataHandler().physicalData().gravity());
-        }
+        if (body == null || body.isEmpty() || !body.isReachable()) return;
+
+        applyCustomGravity(entity, body.getBodyDataHandler().physicalData().gravity());
+
     }
 
 
@@ -40,9 +41,10 @@ public class LivingTickEvents {
         LivingEntity entity = event.getEntity();
 
         CelestialBody body = CelestialRegisters.getCelestialBodyFromLevel(entity.level());
-        if(!body.isEmpty() && body.isReachable()) {
-            modifyFallDamage(event, entity, body.getBodyDataHandler().physicalData().gravity());
-        }
+        if (body == null || body.isEmpty() || !body.isReachable()) return;
+
+        modifyFallDamage(event, entity, body.getBodyDataHandler().physicalData().gravity());
+
     }
 
     private static boolean isSurvivalOrAdventure(ServerPlayer player) {

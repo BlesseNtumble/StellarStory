@@ -1,8 +1,22 @@
 {
   "key.categories.stellarstory": "Stellar Story",
   "key.stellarstory.open_map": "Открыть карту космоса",
+  "key.stellarstory.open_suit_inventory": "Открыть инвентарь скафандра",
   "gui.stellarstory.space_map": "Карта космоса",
   "gui.stellarstory.space_map.title": "Звёздная карта",
   "gui.stellarstory.space_map.hint": "ЛКМ: Выбор | ПКМ: Вращение | СКМ: Перемещение | Колесо: Масштаб | ESC: Закрыть",
-  "gui.stellarstory.catalog.title": "КАТАЛОГ"
+  "gui.stellarstory.catalog.title": "КАТАЛОГ",
+  "container.stellarstory.suit_inventory": "Инвентарь скафандра",
+  "gui.stellarstory.suit_tab": "Скафандр",
+  "gui.stellarstory.suit_tab.tooltip": "Нажмите, чтобы открыть слоты экипировки",
+  "gui.stellarstory.inventory_tab": "Инвентарь",
+  "gui.stellarstory.suit_inventory_title": "Экипировка скафандра",
+  "gui.stellarstory.suit_hint": "ПКМ для обмена предметами",
+  "tooltip.stellarstory.equip_slot.helmet": "Шлем",
+  "tooltip.stellarstory.equip_slot.chestplate": "Нагрудник",
+  "tooltip.stellarstory.equip_slot.leggings": "Поножи",
+  "tooltip.stellarstory.equip_slot.boots": "Ботинки",
+  "tooltip.stellarstory.equip_slot.oxygen_tank": "Кислородный баллон",
+  "tooltip.stellarstory.equip_slot.scanner": "Сканер",
+  "tooltip.stellarstory.equip_slot.thermal_regulator": "Терморегулятор"
 }

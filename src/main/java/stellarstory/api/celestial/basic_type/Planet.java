@@ -103,6 +103,8 @@ public class Planet extends CelestialBody {
             }
         }
     }
+
+
     @Override
     public Codec<? extends CelestialBody> getCodec() {
         return CODEC;

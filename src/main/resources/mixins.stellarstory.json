@@ -8,7 +8,8 @@
     "MixinEntity"
   ],
   "client": [
-    "MixinMinecraft"
+    "MixinMinecraft",
+    "client.MixinInventoryScreen"
   ],
   "minVersion": "0.8"
 }

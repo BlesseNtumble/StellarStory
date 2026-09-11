@@ -21,7 +21,7 @@
     "spin_speed": 0.97,
     "body_size": 4.0
   },
-  "childs": [],
+  "childs": ["stellarstory:mars_station"],
   "asteroids": [],
   "barycenter": null
 }

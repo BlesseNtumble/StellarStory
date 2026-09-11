@@ -12,11 +12,7 @@ import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
 import stellarstory.api.celestial.StarSystem;
-import stellarstory.api.celestial.basic_type.Moon;
-import stellarstory.api.celestial.basic_type.Planet;
-import stellarstory.api.celestial.basic_type.Star;
-import stellarstory.api.celestial.basic_type.Asteroid;
-import stellarstory.api.celestial.basic_type.Comet;
+import stellarstory.api.celestial.basic_type.*;
 import stellarstory.api.celestial.Barycenter;
 
 import java.io.BufferedReader;
@@ -32,8 +28,11 @@ public class CelestialBodyLoader {
     private static final Map<ResourceLocation, Asteroid> ASTEROIDS = new HashMap<>();
     private static final Map<ResourceLocation, Comet> COMETS = new HashMap<>();
     private static final Map<ResourceLocation, Barycenter> BARYCENTERS = new HashMap<>();
+    private static final Map<ResourceLocation, Station> STATIONS = new HashMap<>();
 
     public static void loadCelestialBodies(ResourceManager resourceManager) {
+        CelestialRegisters.reset();
+
         // Очистка предыдущих данных
         STAR_SYSTEMS.clear();
         STARS.clear();
@@ -42,6 +41,7 @@ public class CelestialBodyLoader {
         ASTEROIDS.clear();
         COMETS.clear();
         BARYCENTERS.clear();
+        STATIONS.clear();
 
         loadStarSystems(resourceManager);
         loadCelestialBodies(resourceManager, "celestialbodies/stars", Star.CODEC, STARS, "Star");
@@ -49,10 +49,13 @@ public class CelestialBodyLoader {
         loadCelestialBodies(resourceManager, "celestialbodies/moons", Moon.CODEC, MOONS, "Moon");
         loadCelestialBodies(resourceManager, "celestialbodies/asteroids", Asteroid.CODEC, ASTEROIDS, "Asteroid");
         loadCelestialBodies(resourceManager, "celestialbodies/comets", Comet.CODEC, COMETS, "Comet");
+        loadCelestialBodies(resourceManager, "celestialbodies/stations", Station.CODEC, STATIONS, "Station");
         loadBarycenters(resourceManager);
 
         linkCelestialBodies();
+        registerStation(resourceManager);
         registerStarSystems();
+
     }
 
     private static void loadStarSystems(ResourceManager resourceManager) {
@@ -131,8 +134,12 @@ public class CelestialBodyLoader {
             StellarStory.getLogger().info("  PLANET: " + entry.getKey() + " -> " + entry.getValue().getName());
         }
 
+        Map<ResourceLocation, IChildBody> allChilds = new HashMap<>();
+        allChilds.putAll(MOONS);
+        allChilds.putAll(STATIONS);
+
         for(Planet planets : PLANETS.values()) {
-            planets.resolveChilds(MOONS);
+            planets.resolveChilds(allChilds);
         }
 
         for (Star stars : STARS.values()) {
@@ -156,6 +163,17 @@ public class CelestialBodyLoader {
         STAR_SYSTEMS.forEach((id, system) -> {
             CelestialRegisters.registerStarSystem(id, system);
             StellarStory.getLogger().info("Registered Star System: " + system.getName());
+        });
+    }
+
+    private static void registerStation(ResourceManager resourceManager) {
+        STATIONS.forEach((id, station) -> {
+            ResourceLocation dimFile = ResourceLocation.fromNamespaceAndPath(
+                    id.getNamespace(), "dimension/" + station.getDimensionId().getPath() + ".json");
+            if (resourceManager.getResourceStack(dimFile).isEmpty()) {
+                StellarStory.getLogger().error("Station '{}' has no dimension file {}", station.getName(), dimFile);
+            }
+            CelestialRegisters.registerStation(id, station);
         });
     }
 }

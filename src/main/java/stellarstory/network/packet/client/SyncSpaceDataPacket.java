@@ -22,7 +22,7 @@ public class SyncSpaceDataPacket {
         return new SyncSpaceDataPacket(buf.readFloat());
     }
 
-    public static void handle(SyncSpaceDataPacket packet, Supplier<NetworkEvent.Context> ctx) {
+    public static void handler(SyncSpaceDataPacket packet, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             // Сохраняем температуру на клиенте
             ClientSpaceData.setTemperature(packet.temperature);

@@ -34,7 +34,7 @@ public class StarSystem {
             Codec.DOUBLE.fieldOf("position_z").orElse(0.0).forGetter(s -> s.worldZ)
     ).apply(instance, StarSystem::create));
 
-public static StarSystem create(String name, List<ResourceLocation> stars, List<ResourceLocation> barycenters,
+    public static StarSystem create(String name, List<ResourceLocation> stars, List<ResourceLocation> barycenters,
                                 double wx, double wy, double wz) {
         StarSystem sys = new StarSystem(name, stars);
         sys.barycenterReferences = barycenters;

@@ -1,0 +1,12 @@
+{
+  "name": "mars_station",
+  "icon": "stellarstory:textures/ui/station.png",
+  "reachable": true,
+  "data": {
+    "physical": { "dayLength": 86400000, "gravity": 0.01 },
+    "atmosphere": { "temperature": -20, "temperatureModificator": 1.0, "temperatureOffset": 0.0 }
+  },
+  "orbit": { "distance": 50, "speed": 0.001, "phase": 0 },
+  "orbit_visual": { "width": 2, "bodySize": 3.0, "spinSpeed": 0.1 },
+  "template": "stellarstory:mars_station"
+}

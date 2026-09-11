@@ -11,7 +11,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import net.minecraftforge.network.NetworkEvent.Context;
+import stellarstory.network.packet.client.SyncPlayerCapabilityPacket;
 import stellarstory.network.packet.client.SyncSpaceDataPacket;
+import stellarstory.network.packet.client.SyncStationUnlockPacket;
 
 @Mod.EventBusSubscriber(
         bus = Mod.EventBusSubscriber.Bus.MOD
@@ -31,6 +33,8 @@ public class NetworkHandler {
 
     @SubscribeEvent
     public static void registerMessages(FMLCommonSetupEvent event) {
-        addNetworkMessage(SyncSpaceDataPacket.class, SyncSpaceDataPacket::encode, SyncSpaceDataPacket::decode, SyncSpaceDataPacket::handle);
+        addNetworkMessage(SyncSpaceDataPacket.class, SyncSpaceDataPacket::encode, SyncSpaceDataPacket::decode, SyncSpaceDataPacket::handler);
+        addNetworkMessage(SyncPlayerCapabilityPacket.class, SyncPlayerCapabilityPacket::encode, SyncPlayerCapabilityPacket::new, SyncPlayerCapabilityPacket::handler);
+        addNetworkMessage(SyncStationUnlockPacket.class, SyncStationUnlockPacket::encode, SyncStationUnlockPacket::decode, SyncStationUnlockPacket::handler);
     }
 }

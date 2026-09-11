@@ -1,4 +1,4 @@
-package stellarstory.client.gui;
+package stellarstory.client.screen;
 
 import com.mojang.blaze3d.platform.GlConst;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -23,11 +23,7 @@ import org.lwjgl.glfw.GLFW;
 import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.Barycenter;
 import stellarstory.api.celestial.StarSystem;
-import stellarstory.api.celestial.basic_type.Asteroid;
-import stellarstory.api.celestial.basic_type.Comet;
-import stellarstory.api.celestial.basic_type.Moon;
-import stellarstory.api.celestial.basic_type.Planet;
-import stellarstory.api.celestial.basic_type.Star;
+import stellarstory.api.celestial.basic_type.*;
 import stellarstory.api.celestial.data.OrbitData;
 import stellarstory.api.celestial.data.OrbitVisual;
 
@@ -219,6 +215,7 @@ public class SpaceMapScreen extends Screen {
                     catalog.add(new CatalogEntry(child.name, childColor, child.type));
 
                     for (BodyRenderInfo grandchild : child.children) {
+                        if ("station".equals(grandchild.type)) { continue; };
                         int gcColor = 0xFF000000
                                 | ((int)(grandchild.r * 255) << 16)
                                 | ((int)(grandchild.g * 255) << 8)
@@ -249,14 +246,14 @@ public class SpaceMapScreen extends Screen {
 
                 // Цвет звезды по спектральному классу
                 Star.SpectralClass spectralClass = star.getSpectralClass();
-                float sr = spectralClass.r;
-                float sg = spectralClass.g;
-                float sb = spectralClass.b;
+                float r = spectralClass.r;
+                float g = spectralClass.g;
+                float b = spectralClass.b;
 
                 BodyRenderInfo starInfo = new BodyRenderInfo(
                         star.getName(), "star",
                         star.getOrbit(), star.getOrbitVisual(),
-                        0.05F + si * 0.02F, 8.0F, sr, sg, sb,
+                        0.05F + si * 0.02F, 8.0F, r, g, b,
                         star.getIcon(), barycenter
                 );
 
@@ -265,47 +262,61 @@ public class SpaceMapScreen extends Screen {
                 for (int pi = 0; pi < planets.size(); pi++) {
                     Planet planet = planets.get(pi);
 
-                    float pr = planet.getOrbitVisual().bodySize() / 10.0F;
-                    float pg = planet.getOrbitVisual().spinSpeed() / 2.0F;
-                    float pb = 0.5F;
+                    r = planet.getOrbitVisual().bodySize() / 10.0F;
+                    g = planet.getOrbitVisual().spinSpeed() / 2.0F;
+                    b = 0.5F;
 
                     String pName = planet.getName().toLowerCase();
                     if (pName.contains("mars")) {
-                        pr = 0.8F; pg = 0.3F; pb = 0.2F;
+                        r = 0.8F; g = 0.3F; b = 0.2F;
                     } else if (pName.contains("earth") || pName.contains("overworld")) {
-                        pr = 0.2F; pg = 0.4F; pb = 0.8F;
+                        r = 0.2F; g = 0.4F; b = 0.8F;
                     }
 
                     BodyRenderInfo planetInfo = new BodyRenderInfo(
                             planet.getName(), "planet", planet.getOrbit(), planet.getOrbitVisual(),
-                            0.9F + pi * 0.2F, 5.0F, pr, pg, pb,
+                            0.9F + pi * 0.2F, 5.0F, r, g, b,
                             planet.getIcon(), null
                     );
 
                     // Moons
                     for (var child : planet.getChilds()) {
                         if (child instanceof Moon moon) {
-                            float mr = 0.5F + ((moon.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
-                            float mg = 0.5F + ((moon.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
-                            float mb = 0.5F + ((moon.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
+                            r = 0.5F + ((moon.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
+                            g = 0.5F + ((moon.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
+                            b = 0.5F + ((moon.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
 
                             planetInfo.children.add(new BodyRenderInfo(
                                     moon.getName(), "moon", moon.getOrbit(), moon.getOrbitVisual(),
-                                    0.5F + ((moon.hashCode() >> 4 & 0xF)) / 10.0F, 2.0F, mr, mg, mb,
+                                    0.5F + ((moon.hashCode() >> 4 & 0xF)) / 10.0F, 2.0F, r, g, b,
                                     moon.getIcon(), null
                             ));
+                        }
+
+                        if (child instanceof Station station) {
+                            if (true || station.isUnlockedForPlayer(Minecraft.getInstance().player.getUUID())) {
+                                r = 0.7F + ((station.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
+                                g = 0.6F + ((station.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
+                                b = 0.5F + ((station.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
+
+                                planetInfo.children.add(new BodyRenderInfo(
+                                        station.getName(), "station", station.getOrbit(), station.getOrbitVisual(),
+                                        0.5F, 2.5F, r, g, b,
+                                        station.getIcon(), null
+                                ));
+                            }
                         }
                     }
 
                     // Asteroids orbiting the planet
                     for (Asteroid asteroid : planet.getAsteroids()) {
-                        float ar = 0.45F + ((asteroid.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
-                        float ag = 0.42F + ((asteroid.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
-                        float ab = 0.38F + ((asteroid.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
+                        r = 0.45F + ((asteroid.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
+                        g = 0.42F + ((asteroid.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
+                        b = 0.38F + ((asteroid.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
 
                         planetInfo.children.add(new BodyRenderInfo(
                                 asteroid.getName(), "asteroid", asteroid.getOrbit(), asteroid.getOrbitVisual(),
-                                1.5F + ((asteroid.hashCode() >> 6 & 0xF)) / 5.0F, 2.6F, ar, ag, ab,
+                                1.5F + ((asteroid.hashCode() >> 6 & 0xF)) / 5.0F, 2.6F, r, g, b,
                                 asteroid.getIcon(), null
                         ));
                     }
@@ -315,13 +326,13 @@ public class SpaceMapScreen extends Screen {
 
                 // Asteroids orbiting the star directly
                 for (Asteroid asteroid : star.getAsteroids()) {
-                    float ar = 0.45F + ((asteroid.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
-                    float ag = 0.42F + ((asteroid.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
-                    float ab = 0.38F + ((asteroid.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
+                    r = 0.45F + ((asteroid.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
+                    g = 0.42F + ((asteroid.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
+                    b = 0.38F + ((asteroid.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
 
                     starInfo.children.add(new BodyRenderInfo(
                             asteroid.getName(), "asteroid", asteroid.getOrbit(), asteroid.getOrbitVisual(),
-                            1.5F + ((asteroid.hashCode() >> 6 & 0xF)) / 5.0F, 2.8F, ar, ag, ab,
+                            1.5F + ((asteroid.hashCode() >> 6 & 0xF)) / 5.0F, 2.8F, r, g, b,
                             asteroid.getIcon(), null
                     ));
                 }
