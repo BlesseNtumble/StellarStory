@@ -4,8 +4,6 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.DataGenerator;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.data.DatapackBuiltinEntriesProvider;
@@ -13,7 +11,6 @@ import net.minecraftforge.common.data.ExistingFileHelper;
 import net.minecraftforge.data.event.GatherDataEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.server.ServerLifecycleEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
@@ -26,7 +23,6 @@ import org.apache.logging.log4j.Logger;
 import stellarstory.common.init.*;
 import stellarstory.common.worldgen.StellarFeatures;
 import stellarstory.common.worldgen.StellarWorldGen;
-import stellarstory.data.CelestialBodyLoader;
 import stellarstory.data.StellarBlockstatesData;
 import stellarstory.data.StellarItemModelData;
 
@@ -69,10 +65,11 @@ public class StellarStory {
 //        StellarDimensions.register(eventBus);
 //        NetworkHandler.registerPackets();
 
-        eventBus.addListener(this::commonSetup);
-        eventBus.addListener(this::serverStarting);
+        modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::serverStarting);
 
-        modEventBus.addListener(this::onServerStarting);
+        // Реестр небесных тел грузится через AddReloadListenerEvent
+        // (см. common.events.CelestialDataEvents) — и на сервере, и на клиенте.
         modEventBus.addListener(this::registerCommands);
         eventBus.addListener(this::gatherData);
 
@@ -94,26 +91,7 @@ public class StellarStory {
     }
 
     public void serverStarting(ServerLifecycleEvent event) {
-        MinecraftServer server = event.getServer();
-        ResourceManager manager = server.getResourceManager();
-/*
-        List<JsonElement> json = Utils.getAllJsonByRL(manager, "celestial_bodies/systems");
-        addDebugMessage(json.size() + "");
-        json.forEach(jsonElement -> {
-            Codec<StarSystem> codec = StarSystem.CODEC;
-            DataResult<Pair<StarSystem, JsonElement>> result = codec.decode(JsonOps.INSTANCE, jsonElement);
-            result.result().ifPresent(data -> {
-                addDebugMessage(data.getFirst().toString());
-            });
-
-        });
-*/
-    }
-
-
-    public void onServerStarting(ServerStartingEvent event) {
-        ResourceManager resourceManager = event.getServer().getResourceManager();
-        CelestialBodyLoader.loadCelestialBodies(resourceManager);
+        // Пусто: загрузка данных происходит в CelestialDataEvents (AddReloadListenerEvent)
     }
 
     public static Logger getLogger() {

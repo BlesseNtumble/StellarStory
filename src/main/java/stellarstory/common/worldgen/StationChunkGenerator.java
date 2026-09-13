@@ -128,12 +128,13 @@ public class StationChunkGenerator extends ChunkGenerator {
 
     @Override
     public int getGenDepth() {
-        return 384;
+        // должно совпадать с height в dimension_type/station_type.json
+        return 256;
     }
 
     @Override
     public int getSeaLevel() {
-        return -63;
+        return 0;
     }
 
 

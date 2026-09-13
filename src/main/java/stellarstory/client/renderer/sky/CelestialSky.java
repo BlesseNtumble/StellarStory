@@ -25,6 +25,7 @@ import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
 import stellarstory.api.celestial.basic_type.Planet;
+import stellarstory.api.celestial.basic_type.Star;
 import stellarstory.client.renderer.sky.helper.SkyHelper;
 import stellarstory.client.renderer.sky.helper.StarHelper;
 
@@ -58,17 +59,13 @@ public abstract class CelestialSky extends DimensionSpecialEffects {
             FogType fogtype = camera.getFluidInCamera();
             if (fogtype != FogType.POWDER_SNOW && fogtype != FogType.LAVA
                     && !this.doesMobEffectBlockSky(camera)) {
-                CelestialBody body = CelestialRegisters.getCelestialBodyFromPlayer(this.minecraft.player);
+                CelestialBody body = CelestialRegisters.getCelestialBodyFromLevel(level);
 
-                if (body != null) {
+                if (body != null && !body.isEmpty()) {
 
-                    ResourceLocation icon = null;
-                    if(body instanceof Planet planet)
-                        icon = planet.getParentStar().orElseThrow().getIcon();
-                    else if (body instanceof IChildBody child)
-                        icon = child.getParentPlanet().getParentStar().orElseThrow().getIcon();
+                    ResourceLocation icon = getStarIcon(body);
 
-                    if(icon != null) {
+                    if (icon != null) {
                         float sunBrightness = 1.0F;
                         float starBrightness = minecraft.level.getStarBrightness(partialTicks) * sunBrightness + 0.5F;
                         skyHelper.renderSky(starHelper.getStarBuffer(), matrix, poseStack, minecraft, icon, partialTicks, sunBrightness, starBrightness, 0.0F, setupFog);
@@ -104,6 +101,25 @@ public abstract class CelestialSky extends DimensionSpecialEffects {
             }
         }
         return true;
+    }
+
+    /**
+     * Иконка светила, освещающего это тело. Возвращает null, если связь с родительской
+     * звездой не разрешена (кривый датапак) — небо тогда рисуется без солнца.
+     */
+    @Nullable
+    protected ResourceLocation getStarIcon(CelestialBody body) {
+        if (body instanceof Planet planet) {
+            return planet.getParentStar().map(Star::getIcon).orElse(null);
+        }
+        if (body instanceof IChildBody child) {
+            Planet parent = child.getParentPlanet();
+            if (parent == null) {
+                return null;
+            }
+            return parent.getParentStar().map(Star::getIcon).orElse(null);
+        }
+        return null;
     }
 
     protected abstract void renderBodySky(ClientLevel level, int ticks, float partialTicks, PoseStack poseStack,

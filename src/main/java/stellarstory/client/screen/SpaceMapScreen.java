@@ -26,6 +26,8 @@ import stellarstory.api.celestial.StarSystem;
 import stellarstory.api.celestial.basic_type.*;
 import stellarstory.api.celestial.data.OrbitData;
 import stellarstory.api.celestial.data.OrbitVisual;
+import stellarstory.network.NetworkHandler;
+import stellarstory.network.packet.server.TeleportToStationPacket;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -215,7 +217,6 @@ public class SpaceMapScreen extends Screen {
                     catalog.add(new CatalogEntry(child.name, childColor, child.type));
 
                     for (BodyRenderInfo grandchild : child.children) {
-                        if ("station".equals(grandchild.type)) { continue; };
                         int gcColor = 0xFF000000
                                 | ((int)(grandchild.r * 255) << 16)
                                 | ((int)(grandchild.g * 255) << 8)
@@ -294,14 +295,17 @@ public class SpaceMapScreen extends Screen {
                         }
 
                         if (child instanceof Station station) {
-                            if (true || station.isUnlockedForPlayer(Minecraft.getInstance().player.getUUID())) {
+                            if (CelestialRegisters.isStationUnlocked(Minecraft.getInstance().player, station)) {
                                 r = 0.7F + ((station.hashCode() & 0xFF) % 60) / 100.0F * 0.3F;
                                 g = 0.6F + ((station.hashCode() >> 8 & 0xFF) % 60) / 100.0F * 0.3F;
                                 b = 0.5F + ((station.hashCode() >> 16 & 0xFF) % 60) / 100.0F * 0.3F;
 
                                 planetInfo.children.add(new BodyRenderInfo(
                                         station.getName(), "station", station.getOrbit(), station.getOrbitVisual(),
-                                        0.5F, 2.5F, r, g, b,
+                                        // Размер и скорость вращения берём из json станции (orbit_visual)
+                                        station.getOrbitVisual().spinSpeed(),
+                                        Math.max(1.5F, station.getOrbitVisual().bodySize()),
+                                        r, g, b,
                                         station.getIcon(), null
                                 ));
                             }
@@ -422,15 +426,30 @@ public class SpaceMapScreen extends Screen {
                             planet.spinSpeed, 0.0F, 1.0F, 0.0F,
                             false, planet.icon));
 
-                    // Children (moons, planet asteroids)
+                    // Children (moons, stations, planet asteroids)
                     for (BodyRenderInfo child : planet.children) {
                         float[] cw = bodyWorldPos(planetWX, planetWY, planetWZ, child);
+
+                        // Orbit ring around the parent planet. Belts are skipped:
+                        // their rocks already trace the orbit.
+                        if (!"asteroid".equals(child.type)) {
+                            drawOrbitRing(guiGraphics, planetWX, planetWY, planetWZ,
+                                    child.orbit, child.orbitVisual, rgba(0.45F, 0.55F, 0.75F, 0.4F));
+                        }
 
                         if ("moon".equals(child.type)) {
                             float[] cl = dirTo(starWX, starWY, starWZ, cw[0], cw[1], cw[2]);
 
                             cubes.add(new CubeRenderData(cw[0], cw[1], cw[2], child.bodySize,
                                     child.r, child.g, child.b, cl[0], cl[1], cl[2], 0.2F,
+                                    0.0F, 1.0F, 0.0F,
+                                    false, child.icon));
+                        } else if ("station".equals(child.type)) {
+                            // Man-made hull: lit by the star, spins about its own axis
+                            float[] cl = dirTo(starWX, starWY, starWZ, cw[0], cw[1], cw[2]);
+
+                            cubes.add(new CubeRenderData(cw[0], cw[1], cw[2], child.bodySize,
+                                    child.r, child.g, child.b, cl[0], cl[1], cl[2], child.spinSpeed,
                                     0.0F, 1.0F, 0.0F,
                                     false, child.icon));
                         } else if ("asteroid".equals(child.type)) {
@@ -589,6 +608,11 @@ public class SpaceMapScreen extends Screen {
         if (selectedBody != null) {
             String info = selectedBody.name + " (" + selectedBody.type + ")";
             guiGraphics.drawString(font, info, 10, 8, 0xAAAAFF, false);
+
+            if ("station".equals(selectedBody.type)) {
+                String travel = Component.translatable("gui.stellarstory.space_map.travel").getString();
+                guiGraphics.drawString(font, travel, 10, 20, 0x88FF88, false);
+            }
         }
 
         // Hover name
@@ -662,23 +686,28 @@ public class SpaceMapScreen extends Screen {
         // 1. Apply camera offset (selected body position)
         float x = (wx - camOffsetX) * zoom;
         float y = (wy - camOffsetY) * zoom;
-        float z = (wz - camOffsetZ) * zoom - 100.0F; // fixed camera distance
+        float z = (wz - camOffsetZ) * zoom;
 
-        // 2. Rotate X (pitch)
-        float cosX = Mth.cos(camRotX * Mth.DEG_TO_RAD);
-        float sinX = Mth.sin(camRotX * Mth.DEG_TO_RAD);
-        float y1 = y * cosX - z * sinX;
-        float z1 = y * sinX + z * cosX;
-        y = y1; z = z1;
-
-        // 3. Rotate Y (yaw)
+        // 2. Yaw about the world Y axis FIRST
         float cosY = Mth.cos(camRotY * Mth.DEG_TO_RAD);
         float sinY = Mth.sin(camRotY * Mth.DEG_TO_RAD);
         float x1 = x * cosY + z * sinY;
-        z = -x * sinY + z * cosY;
-        x = x1;
+        float z1 = -x * sinY + z * cosY;
+        x = x1; z = z1;
 
-        // 4. Apply pan offset in screen space (after rotation)
+        // 3. Pitch about the camera's OWN X axis (after yaw). Applying pitch
+        //    before yaw makes the on-screen orbit direction depend on yaw.
+        float cosX = Mth.cos(camRotX * Mth.DEG_TO_RAD);
+        float sinX = Mth.sin(camRotX * Mth.DEG_TO_RAD);
+        float y1 = y * cosX - z * sinX;
+        float z2 = y * sinX + z * cosX;
+        y = y1; z = z2;
+
+        // 4. Camera distance along the view axis, AFTER rotation, so the camera
+        //    target stays pinned to the screen centre while rotating
+        z -= 100.0F;
+
+        // 5. Apply pan offset in screen space (after rotation)
         x += panOffsetX;
         y += panOffsetY;
 
@@ -1116,7 +1145,7 @@ public class SpaceMapScreen extends Screen {
         if (button == 1 && isRotating) {
             float dx = (float)(mouseX - rotStartX);
             float dy = (float)(mouseY - rotStartY);
-            camRotY += dx * 0.5F;
+            camRotY = Mth.clamp(camRotY + dx * 0.5F, -90.0F, 90.0F);
             camRotX = Mth.clamp(camRotX + dy * 0.5F, -90.0F, 90.0F);
             rotStartX = mouseX;
             rotStartY = mouseY;
@@ -1261,6 +1290,13 @@ public class SpaceMapScreen extends Screen {
         }
         if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_MINUS || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_SUBTRACT) {
             zoom = Mth.clamp(zoom / 1.2F, 0.15F, 5.0F);
+            return true;
+        }
+        // ENTER: fly to the selected station
+        if ((keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
+                && selectedBody != null && "station".equals(selectedBody.type)) {
+            NetworkHandler.PACKET_HANDLER.sendToServer(new TeleportToStationPacket(selectedBody.name));
+            this.onClose();
             return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);

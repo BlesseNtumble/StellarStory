@@ -14,6 +14,7 @@ import net.minecraftforge.network.NetworkEvent.Context;
 import stellarstory.network.packet.client.SyncPlayerCapabilityPacket;
 import stellarstory.network.packet.client.SyncSpaceDataPacket;
 import stellarstory.network.packet.client.SyncStationUnlockPacket;
+import stellarstory.network.packet.server.TeleportToStationPacket;
 
 @Mod.EventBusSubscriber(
         bus = Mod.EventBusSubscriber.Bus.MOD
@@ -36,5 +37,6 @@ public class NetworkHandler {
         addNetworkMessage(SyncSpaceDataPacket.class, SyncSpaceDataPacket::encode, SyncSpaceDataPacket::decode, SyncSpaceDataPacket::handler);
         addNetworkMessage(SyncPlayerCapabilityPacket.class, SyncPlayerCapabilityPacket::encode, SyncPlayerCapabilityPacket::new, SyncPlayerCapabilityPacket::handler);
         addNetworkMessage(SyncStationUnlockPacket.class, SyncStationUnlockPacket::encode, SyncStationUnlockPacket::decode, SyncStationUnlockPacket::handler);
+        addNetworkMessage(TeleportToStationPacket.class, TeleportToStationPacket::encode, TeleportToStationPacket::decode, TeleportToStationPacket::handler);
     }
 }

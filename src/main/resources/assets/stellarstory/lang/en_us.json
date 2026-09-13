@@ -5,6 +5,7 @@
   "gui.stellarstory.space_map": "Space Map",
   "gui.stellarstory.space_map.title": "Star Map",
   "gui.stellarstory.space_map.hint": "LMB: Select | RMB: Rotate | MMB: Pan | Scroll: Zoom | ESC: Close",
+  "gui.stellarstory.space_map.travel": "ENTER: Travel to station",
   "gui.stellarstory.catalog.title": "CATALOG",
   "container.stellarstory.suit_inventory": "Space Suit Inventory",
   "gui.stellarstory.suit_tab": "Suit",

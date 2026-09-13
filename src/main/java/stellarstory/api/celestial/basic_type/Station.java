@@ -1,23 +1,15 @@
 package stellarstory.api.celestial.basic_type;
 
-import com.google.common.collect.Maps;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
-import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.BodyDataHandler;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.IChildBody;
 import stellarstory.api.celestial.data.OrbitData;
 import stellarstory.api.celestial.data.OrbitVisual;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 public class Station extends CelestialBody implements IChildBody {
 
@@ -25,7 +17,6 @@ public class Station extends CelestialBody implements IChildBody {
     private ResourceLocation template;
     private Planet parentPlanet;
     private Moon parentMoon;
-    private transient Map<UUID, Boolean> unlockedByPlayer = Maps.newHashMap();
 
     public static final Codec<Station> CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
@@ -96,33 +87,14 @@ public class Station extends CelestialBody implements IChildBody {
         return template;
     }
 
+    @Override
     public ResourceLocation getDimensionId() {
-        return dimension != null ? dimension : CelestialRegisters.getId(this); // stellarstory:<name>
-    }
-
-    public ResourceKey<Level> getDimensionKey() {
-        return ResourceKey.create(Registries.DIMENSION, getDimensionId());
+        return dimension != null ? dimension : super.getDimensionId(); // stellarstory:<name>
     }
 
     @Override
     public Codec<? extends CelestialBody> getCodec() {
         return CODEC;
-    }
-
-    public boolean isUnlockedForPlayer(UUID playerName) {
-        return unlockedByPlayer.getOrDefault(playerName, false);
-    }
-
-    public void unlockForPlayer(UUID playerName) {
-        unlockedByPlayer.put(playerName, true);
-    }
-
-    public void lockForPlayer(UUID playerName) {
-        unlockedByPlayer.put(playerName, false);
-    }
-
-    public void clearUnlocks() {
-        unlockedByPlayer.clear();
     }
 
     public static Builder builder() {

@@ -53,9 +53,22 @@ public class CelestialBodyLoader {
         loadBarycenters(resourceManager);
 
         linkCelestialBodies();
+        registerBodies();
         registerStation(resourceManager);
         registerStarSystems();
 
+    }
+
+    /**
+     * Тела регистрируются отдельной картой, чтобы их можно было найти по id измерения
+     * без обхода всех звёздных систем.
+     */
+    private static void registerBodies() {
+        STARS.forEach(CelestialRegisters::registerBody);
+        PLANETS.forEach(CelestialRegisters::registerBody);
+        MOONS.forEach(CelestialRegisters::registerBody);
+        ASTEROIDS.forEach(CelestialRegisters::registerBody);
+        COMETS.forEach(CelestialRegisters::registerBody);
     }
 
     private static void loadStarSystems(ResourceManager resourceManager) {

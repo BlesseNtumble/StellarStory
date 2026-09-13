@@ -9,28 +9,37 @@ import stellarstory.common.init.StellarCapabilities;
 
 import java.util.function.Supplier;
 
+/**
+ * Сервер -> клиент: полная копия PlayerCapability (инвентарь скафандра,
+ * разблокированные станции). Отправляется при входе, респавне, смене измерения.
+ */
 public class SyncPlayerCapabilityPacket {
-    private static PlayerCapability capability;
+    private final PlayerCapability capability;
 
     public SyncPlayerCapabilityPacket(FriendlyByteBuf buffer) {
-        capability = new PlayerCapability();
-        capability.readNBT(buffer.readNbt());
+        PlayerCapability data = new PlayerCapability();
+        data.readNBT(buffer.readNbt());
+        this.capability = data;
     }
 
     public SyncPlayerCapabilityPacket(PlayerCapability data) {
-        capability = data;
+        this.capability = data;
     }
 
     public static void encode(SyncPlayerCapabilityPacket message, FriendlyByteBuf buffer) {
-        buffer.writeNbt((CompoundTag)message.capability.writeNBT());
+        buffer.writeNbt((CompoundTag) message.capability.writeNBT());
     }
-
 
     public static void handler(SyncPlayerCapabilityPacket message, Supplier<Context> contextSupplier) {
         Context context = contextSupplier.get();
         context.enqueueWork(() -> {
-            if (!context.getDirection().getReceptionSide().isServer()) {
-                PlayerCapability variables = Minecraft.getInstance().player.getCapability(StellarCapabilities.PLAYER_CAPABILITY, null).orElse(new PlayerCapability());
+            if (Minecraft.getInstance().player == null) return;
+
+            PlayerCapability local = Minecraft.getInstance().player
+                    .getCapability(StellarCapabilities.PLAYER_CAPABILITY, null)
+                    .orElse(null);
+            if (local != null) {
+                local.readNBT(message.capability.writeNBT());
             }
         });
         context.setPacketHandled(true);

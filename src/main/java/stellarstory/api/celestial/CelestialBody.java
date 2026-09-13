@@ -1,17 +1,25 @@
 package stellarstory.api.celestial;
 
 import com.mojang.serialization.Codec;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
+import stellarstory.StellarStory;
 import stellarstory.api.celestial.data.AtmosphereData;
 import stellarstory.api.celestial.data.OrbitData;
 import stellarstory.api.celestial.data.OrbitVisual;
 import stellarstory.api.celestial.data.PhysicalData;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 public abstract class CelestialBody implements ICodecBody {
+
+    /** Имя заглушки, которую реестры возвращают вместо null. */
+    public static final String EMPTY_NAME = "empty";
 
     protected String name;
     protected ResourceLocation icon;
@@ -42,11 +50,29 @@ public abstract class CelestialBody implements ICodecBody {
 
     public ResourceLocation getIcon() {return this.icon; }
 
+    /**
+     * Идентификатор измерения, в котором находится это тело.
+     * Соглашение по умолчанию: stellarstory:&lt;name в нижнем регистре&gt;.
+     * Тела с собственным измерением (станции) переопределяют метод.
+     */
+    public ResourceLocation getDimensionId() {
+        String path = this.name == null ? EMPTY_NAME : this.name.toLowerCase(Locale.ROOT);
+        return ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, path);
+    }
+
+    public ResourceKey<Level> getDimensionKey() {
+        return ResourceKey.create(Registries.DIMENSION, getDimensionId());
+    }
+
     @Override
     public abstract Codec<? extends CelestialBody> getCodec();
 
+    /**
+     * Возвращает true для заглушки (см. CelestialRegisters#EMPTY) и для тел без имени.
+     * Не бросает NPE, поэтому безопасна в горячих тиковых обработчиках.
+     */
     public boolean isEmpty() {
-        return this.getName().isEmpty() || this.getName() == "null";
+        return this.name == null || this.name.isEmpty() || EMPTY_NAME.equals(this.name);
     }
 
     public boolean isReachable() { return isReachable; }

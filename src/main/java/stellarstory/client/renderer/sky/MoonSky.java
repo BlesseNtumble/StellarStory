@@ -8,11 +8,12 @@ import org.joml.Matrix4f;
 import stellarstory.StellarStory;
 import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
+import stellarstory.api.celestial.IChildBody;
+import stellarstory.api.celestial.basic_type.Planet;
 
 public class MoonSky extends CelestialSky {
 
     private static final ResourceLocation CUBE_TEXTURE = ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, "textures/celestialbodies/earth.png");
-    private static final CelestialBody OVERWORLD = CelestialRegisters.getCelestialBody("overworld");
 
     public MoonSky() {
         super();
@@ -22,7 +23,13 @@ public class MoonSky extends CelestialSky {
     @Override
     protected void renderBodySky(ClientLevel level, int ticks, float partialTicks, PoseStack poseStack, Camera camera, Matrix4f matrix) {
 
-        if(OVERWORLD == null) return;
+        // Родительскую планету ищем по телу текущего измерения: статическое поле
+        // резолвилось бы до загрузки данных и навсегда оставалось бы null.
+        CelestialBody body = CelestialRegisters.getCelestialBodyFromLevel(level);
+        if (!(body instanceof IChildBody child)) return;
+
+        Planet parent = child.getParentPlanet();
+        if (parent == null || parent.getIcon() == null) return;
 
         // Axial tilt + slow self-rotation
         float earthRotY = ((ticks + partialTicks) % 24000) / 24000.0F * 360.0F;
@@ -39,7 +46,7 @@ public class MoonSky extends CelestialSky {
                 rotX, earthRotY, rotZ, 15.0F, 1.0F,
                 timeOfDay, elevationDeg, azimuthDeg,
                 orbitPhaseOffset, orbitInclination,
-                OVERWORLD.getIcon());
+                parent.getIcon());
 
         // Atmosphere glow (rendered after the cube)
         skyHelper.renderAtmosphere(poseStack,

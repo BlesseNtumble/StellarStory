@@ -37,6 +37,7 @@ public class ClientEvents {
             text.add("Current position:");
 
             CelestialBody body = CelestialRegisters.getCelestialBodyFromPlayer(player);
+            if (body == null || body.isEmpty()) return;
 
             if(body instanceof Planet) {
                 text.add(CelestialRegisters.getStarSystemFromStar(((Planet) body).getParentStar().orElseThrow()).getName());

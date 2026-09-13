@@ -3,8 +3,8 @@
   "icon": "stellarstory:textures/celestialbodies/earth.png",
   "reachable": false,
   "data": {
-    "day_length": 24000,
-    "gravity": 1.0
+    "physical": { "day_length": 24000, "gravity": 1.0 },
+    "atmosphere": { "temperature": 15, "temperature_modificator": 1.0, "temperature_offset": 0 }
   },
   "orbit": {
     "semi_major_axis": 30.0,

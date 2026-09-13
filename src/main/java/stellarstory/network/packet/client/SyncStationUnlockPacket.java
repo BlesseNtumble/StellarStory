@@ -1,56 +1,49 @@
 package stellarstory.network.packet.client;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkEvent;
-import stellarstory.api.CelestialRegisters;
-import stellarstory.api.celestial.CelestialBody;
-import stellarstory.api.celestial.basic_type.Station;
+import stellarstory.common.capability.PlayerCapability;
+import stellarstory.common.init.StellarCapabilities;
 
-import java.util.UUID;
 import java.util.function.Supplier;
 
+/**
+ * Сервер -> клиент: точечное обновление разблокировки одной станции.
+ * Хранится в PlayerCapability клиента, переживает перезаход.
+ */
 public class SyncStationUnlockPacket {
-    private final UUID playerUUID;
-    private final String stationId;
+    private final String stationName;
     private final boolean unlocked;
 
-    public SyncStationUnlockPacket(UUID playerUUID, String stationId, boolean unlocked) {
-        this.playerUUID = playerUUID;
-        this.stationId = stationId;
+    public SyncStationUnlockPacket(String stationName, boolean unlocked) {
+        this.stationName = stationName;
         this.unlocked = unlocked;
     }
 
-    // Сериализация в байты
     public void encode(FriendlyByteBuf buf) {
-        buf.writeUUID(playerUUID);
-        buf.writeUtf(stationId);
+        buf.writeUtf(stationName);
         buf.writeBoolean(unlocked);
     }
 
-    // Десериализация из байтов
     public static SyncStationUnlockPacket decode(FriendlyByteBuf buf) {
-        return new SyncStationUnlockPacket(
-                buf.readUUID(),
-                buf.readUtf(),
-                buf.readBoolean()
-        );
+        return new SyncStationUnlockPacket(buf.readUtf(), buf.readBoolean());
     }
 
-    // Обработка на клиенте
     public void handler(Supplier<NetworkEvent.Context> contextSupplier) {
         NetworkEvent.Context ctx = contextSupplier.get();
         ctx.enqueueWork(() -> {
-            // Находим объект станции на клиенте
-            CelestialBody body = CelestialRegisters.getCelestialBody(stationId);
+            if (Minecraft.getInstance().player == null) return;
 
-            if (body != null && body instanceof Station station) {
-                // Обновляем состояние разблокировки
-                if (unlocked) {
-                    station.unlockForPlayer(playerUUID);
-                } else {
-                    station.lockForPlayer(playerUUID);
-                }
+            PlayerCapability cap = Minecraft.getInstance().player
+                    .getCapability(StellarCapabilities.PLAYER_CAPABILITY, null)
+                    .orElse(null);
+            if (cap == null) return;
+
+            if (unlocked) {
+                cap.unlockStation(stationName);
+            } else {
+                cap.lockStation(stationName);
             }
         });
         ctx.setPacketHandled(true);

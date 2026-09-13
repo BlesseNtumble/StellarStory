@@ -2,6 +2,8 @@ package stellarstory.common.capability;
 
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,6 +25,9 @@ import stellarstory.common.equipment.EquipSlotType;
 import stellarstory.common.init.StellarCapabilities;
 import stellarstory.network.NetworkHandler;
 import stellarstory.network.packet.client.SyncPlayerCapabilityPacket;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Mod.EventBusSubscriber(
         modid = StellarStory.MODID,
@@ -70,12 +75,37 @@ public class PlayerCapability {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // Разблокированные станции
+    // ═══════════════════════════════════════════════════════════════
+
+    /** Имена станций (Station#getName), открытые игроком. Сохраняются в NBT. */
+    private final Set<String> unlockedStations = new HashSet<>();
+
+    public boolean isStationUnlocked(String stationName) {
+        return unlockedStations.contains(stationName);
+    }
+
+    /** @return true, если станция была открыта именно этим вызовом */
+    public boolean unlockStation(String stationName) {
+        return unlockedStations.add(stationName);
+    }
+
+    public void lockStation(String stationName) {
+        unlockedStations.remove(stationName);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // NBT
     // ═══════════════════════════════════════════════════════════════
 
     public Tag writeNBT() {
         CompoundTag nbt = new CompoundTag();
         nbt.put("SuitInventory", suitInventory.serializeNBT());
+        ListTag stations = new ListTag();
+        for (String name : unlockedStations) {
+            stations.add(StringTag.valueOf(name));
+        }
+        nbt.put("UnlockedStations", stations);
         return nbt;
     }
 
@@ -83,6 +113,11 @@ public class PlayerCapability {
         CompoundTag nbt = (CompoundTag) tag;
         if (nbt.contains("SuitInventory")) {
             suitInventory.deserializeNBT(nbt.getCompound("SuitInventory"));
+        }
+        unlockedStations.clear();
+        ListTag stations = nbt.getList("UnlockedStations", Tag.TAG_STRING);
+        for (int i = 0; i < stations.size(); i++) {
+            unlockedStations.add(stations.getString(i));
         }
     }
 
@@ -172,6 +207,8 @@ public class PlayerCapability {
                     .orElse(new PlayerCapability());
             // Копируем инвентарь скафандра при возрождении
             clone.suitInventory.deserializeNBT(original.suitInventory.serializeNBT());
+            // Разблокировки станций переживают смерть
+            clone.unlockedStations.addAll(original.unlockedStations);
         }
     }
 }

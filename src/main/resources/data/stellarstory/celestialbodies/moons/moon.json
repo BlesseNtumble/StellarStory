@@ -1,10 +1,10 @@
 {
   "name": "moon",
-  "icon": "stellarstory:textures/celestialbodies/gray.png",
+  "icon": "stellarstory:textures/celestialbodies/moon.png",
   "reachable": true,
   "data": {
-    "day_length": 12800,
-    "gravity": 0.16
+    "physical": { "day_length": 12800, "gravity": 0.16 },
+    "atmosphere": { "temperature": -20, "temperature_modificator": 4.0, "temperature_offset": -10 }
   },
   "orbit": {
     "semi_major_axis": 6.0,

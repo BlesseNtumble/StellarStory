@@ -5,6 +5,7 @@
   "gui.stellarstory.space_map": "Карта космоса",
   "gui.stellarstory.space_map.title": "Звёздная карта",
   "gui.stellarstory.space_map.hint": "ЛКМ: Выбор | ПКМ: Вращение | СКМ: Перемещение | Колесо: Масштаб | ESC: Закрыть",
+  "gui.stellarstory.space_map.travel": "ENTER: Лететь на станцию",
   "gui.stellarstory.catalog.title": "КАТАЛОГ",
   "container.stellarstory.suit_inventory": "Инвентарь скафандра",
   "gui.stellarstory.suit_tab": "Скафандр",
