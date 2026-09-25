@@ -1,10 +1,12 @@
 package stellarstory.common.events;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.PacketDistributor;
@@ -13,6 +15,7 @@ import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.data.AtmosphereData;
 import stellarstory.common.level.SpaceSavedData;
+import stellarstory.common.transfer.network.PipeNetworkManager;
 import stellarstory.network.NetworkHandler;
 import stellarstory.network.packet.client.SyncSpaceDataPacket;
 
@@ -25,6 +28,11 @@ public class WorldTickEvents {
         if (e.level.isClientSide || e.phase != TickEvent.Phase.END) return;
 
         Level level = e.level;
+
+        // Граф труб принадлежит измерению и не зависит от небесных тел,
+        // поэтому тикается до проверки достижимости тела.
+        PipeNetworkManager.tick(level);
+
         CelestialBody body = CelestialRegisters.getCelestialBodyFromLevel(level);
         if (body == null || !body.isReachable()) return;
 
@@ -57,6 +65,14 @@ public class WorldTickEvents {
                     PacketDistributor.DIMENSION.with(level::dimension),
                     new SyncSpaceDataPacket(target)
             );
+        }
+    }
+
+    /** Граф труб живёт в измерении: при выгрузке выбрасываем менеджер, иначе течь Level. */
+    @SubscribeEvent
+    public static void onLevelUnload(LevelEvent.Unload e) {
+        if (e.getLevel() instanceof ServerLevel serverLevel) {
+            PipeNetworkManager.onLevelUnload(serverLevel);
         }
     }
 

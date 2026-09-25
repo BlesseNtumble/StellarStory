@@ -20,6 +20,12 @@ public class StellarTabs {
                     .icon(() -> new ItemStack(Items.APPLE))
                     .displayItems((params, output) -> {
                         StellarItems.MOON_BASIC_BLOCK_ITEMS.forEach(item -> output.accept(item.get()));
+                        output.accept(StellarItems.ENERGY_BATTERY.get());
+                        output.accept(StellarItems.COAL_GENERATOR.get());
+                        output.accept(StellarItems.ELECTRIC_FURNACE.get());
+                        output.accept(StellarItems.GRINDER.get());
+                        output.accept(StellarItems.ENERGY_PIPE.get());
+                        output.accept(StellarItems.ENERGY_WRENCH.get());
                     }).build()
         );
     }

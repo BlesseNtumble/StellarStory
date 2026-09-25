@@ -19,5 +19,22 @@
   "tooltip.stellarstory.equip_slot.boots": "Ботинки",
   "tooltip.stellarstory.equip_slot.oxygen_tank": "Кислородный баллон",
   "tooltip.stellarstory.equip_slot.scanner": "Сканер",
-  "tooltip.stellarstory.equip_slot.thermal_regulator": "Терморегулятор"
+  "tooltip.stellarstory.equip_slot.thermal_regulator": "Терморегулятор",
+  "block.stellarstory.energy_battery": "Аккумулятор энергии",
+  "block.stellarstory.coal_generator": "Угольный генератор",
+  "block.stellarstory.electric_furnace": "Электропечь",
+  "block.stellarstory.grinder": "Дробитель",
+  "block.stellarstory.energy_pipe": "Энерготруба",
+  "item.stellarstory.energy_wrench": "Гаечный ключ",
+  "gui.stellarstory.side.down": "Низ",
+  "gui.stellarstory.side.up": "Верх",
+  "gui.stellarstory.side.north": "Север",
+  "gui.stellarstory.side.south": "Юг",
+  "gui.stellarstory.side.west": "Запад",
+  "gui.stellarstory.side.east": "Восток",
+  "gui.stellarstory.side_mode.disabled": "Выключено",
+  "gui.stellarstory.side_mode.input": "Вход",
+  "gui.stellarstory.side_mode.output": "Выход",
+  "gui.stellarstory.side_mode.both": "Вход/Выход",
+  "gui.stellarstory.side_mode.set": "%s: %s"
 }

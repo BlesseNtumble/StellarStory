@@ -3,7 +3,7 @@
   "icon": "stellarstory:textures/celestialbodies/station.png",
   "reachable": true,
   "data": {
-    "physical": { "day_length": 24000, "gravity": 0.16 },
+    "physical": { "day_length": 24000, "gravity": 0.01 },
     "atmosphere": { "temperature": 20, "temperature_modificator": 1.0, "temperature_offset": 0.0 }
   },
   "orbit": {

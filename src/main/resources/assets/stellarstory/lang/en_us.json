@@ -19,5 +19,22 @@
   "tooltip.stellarstory.equip_slot.boots": "Boots",
   "tooltip.stellarstory.equip_slot.oxygen_tank": "Oxygen Tank",
   "tooltip.stellarstory.equip_slot.scanner": "Scanner",
-  "tooltip.stellarstory.equip_slot.thermal_regulator": "Thermal Regulator"
+  "tooltip.stellarstory.equip_slot.thermal_regulator": "Thermal Regulator",
+  "block.stellarstory.energy_battery": "Energy Battery",
+  "block.stellarstory.coal_generator": "Coal Generator",
+  "block.stellarstory.electric_furnace": "Electric Furnace",
+  "block.stellarstory.grinder": "Grinder",
+  "block.stellarstory.energy_pipe": "Energy Pipe",
+  "item.stellarstory.energy_wrench": "Energy Wrench",
+  "gui.stellarstory.side.down": "Down",
+  "gui.stellarstory.side.up": "Up",
+  "gui.stellarstory.side.north": "North",
+  "gui.stellarstory.side.south": "South",
+  "gui.stellarstory.side.west": "West",
+  "gui.stellarstory.side.east": "East",
+  "gui.stellarstory.side_mode.disabled": "Disabled",
+  "gui.stellarstory.side_mode.input": "Input",
+  "gui.stellarstory.side_mode.output": "Output",
+  "gui.stellarstory.side_mode.both": "Input/Output",
+  "gui.stellarstory.side_mode.set": "%s: %s"
 }

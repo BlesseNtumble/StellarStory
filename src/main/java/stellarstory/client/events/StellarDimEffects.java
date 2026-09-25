@@ -9,6 +9,7 @@ import net.minecraftforge.fml.common.Mod;
 import stellarstory.StellarStory;
 import stellarstory.client.renderer.sky.CelestialSky;
 import stellarstory.client.renderer.sky.MoonSky;
+import stellarstory.client.renderer.sky.StationSky;
 import stellarstory.data.CelestialBodyDataLoader;
 
 @Mod.EventBusSubscriber(modid = StellarStory.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
@@ -17,9 +18,7 @@ public class StellarDimEffects {
     @SubscribeEvent
     public static void registerDimEffects(RegisterDimensionSpecialEffectsEvent e) {
         e.register(ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, "moon"), new MoonSky());
-        // station_type.json ссылается на этот id; MoonSky рисует родительскую планету,
-        // что для станции, висящей над планетой, и есть нужный вид.
-        e.register(ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, "station"), new MoonSky());
+        e.register(ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, "mars_station"), new StationSky());
     }
 
     /**

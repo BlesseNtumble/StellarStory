@@ -49,6 +49,7 @@ public class StellarStory {
 
         StellarItems.REGISTRY.register(eventBus);
         StellarBlocks.REGISTRY.register(eventBus);
+        StellarBlockEntities.REGISTRY.register(eventBus);
         StellarTabs.REGISTRY.register(eventBus);
         StellarMenuTypes.REGISTRY.register(eventBus);
         StellarFeatures.FEATURES.register(eventBus);

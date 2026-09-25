@@ -1,6 +1,6 @@
 {
   "ultrawarm": false,
-  "natural": false,
+  "natural": true,
   "coordinate_scale": 1.0,
   "has_skylight": true,
   "has_ceiling": false,
@@ -15,5 +15,5 @@
   "min_y": 0,
   "height": 256,
   "infiniburn": "#infiniburn_overworld",
-  "effects": "stellarstory:station"
+  "effects": "stellarstory:mars_station"
 }

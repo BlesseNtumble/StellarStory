@@ -16,8 +16,7 @@ public class MoonSky extends CelestialSky {
     private static final ResourceLocation CUBE_TEXTURE = ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, "textures/celestialbodies/earth.png");
 
     public MoonSky() {
-        super();
-        skyHelper.createCube(1.0F);
+        super(1.0F);
     }
 
     @Override

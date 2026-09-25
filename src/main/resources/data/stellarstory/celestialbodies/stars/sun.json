@@ -1,6 +1,6 @@
 {
   "name": "sun",
-  "icon": "minecraft:textures/environment/sun.png",
+  "icon": "stellarstory:textures/celestialbodies/white.png",
   "spectral_class": "G",
   "planets": [
     "stellarstory:overworld",

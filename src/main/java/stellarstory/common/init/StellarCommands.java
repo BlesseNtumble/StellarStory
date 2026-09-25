@@ -10,9 +10,36 @@ import net.minecraft.server.level.ServerPlayer;
 import stellarstory.api.CelestialRegisters;
 import stellarstory.api.celestial.CelestialBody;
 import stellarstory.api.celestial.basic_type.Station;
+import stellarstory.common.transfer.network.PipeNetworkManager;
 
 public class StellarCommands {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        // Диагностика энергосети: единственный способ не оптимизировать вслепую.
+        dispatcher.register(Commands.literal("stellarstory")
+                .requires(s -> s.hasPermission(2))
+                .then(Commands.literal("pipe")
+                        .then(Commands.literal("stats")
+                                .executes(ctx -> {
+                                    PipeNetworkManager manager = PipeNetworkManager.find(ctx.getSource().getLevel());
+                                    if (manager == null) {
+                                        ctx.getSource().sendSuccess(() ->
+                                                Component.literal("Pipe graph is not present in this level"), false);
+                                        return 0;
+                                    }
+                                    String report = String.format(
+                                            "networks=%d (active=%d, idle=%d) segments=%d endpoints=%d dirty=%d | tick last=%.1fus avg=%.1fus",
+                                            manager.networkCount(),
+                                            manager.activeNetworkCount(),
+                                            manager.networkCount() - manager.activeNetworkCount(),
+                                            manager.segmentCount(),
+                                            manager.endpointCount(),
+                                            manager.dirtyCount(),
+                                            manager.lastTickMicros(),
+                                            manager.averageTickMicros());
+                                    ctx.getSource().sendSuccess(() -> Component.literal(report), false);
+                                    return Command.SINGLE_SUCCESS;
+                                }))));
+
         dispatcher.register(Commands.literal("go_station")
                 .requires(s -> s.hasPermission(2))
                 .then(Commands.argument("station", StringArgumentType.word())

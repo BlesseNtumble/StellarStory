@@ -2,25 +2,12 @@ package stellarstory.common.init;
 
 import com.mojang.serialization.Codec;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.util.valueproviders.UniformInt;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.dimension.DimensionType;
-import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import stellarstory.StellarStory;
-import stellarstory.api.celestial.CelestialBody;
-import stellarstory.common.worldgen.EmptyBiomeSource;
 import stellarstory.common.worldgen.StationChunkGenerator;
-
-import java.util.Optional;
-import java.util.OptionalLong;
 
 public class StellarDimensions {
 

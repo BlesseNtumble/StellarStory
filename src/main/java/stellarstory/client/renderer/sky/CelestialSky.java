@@ -42,12 +42,13 @@ public abstract class CelestialSky extends DimensionSpecialEffects {
     protected StarHelper starHelper = new StarHelper();
     protected SkyHelper skyHelper = new SkyHelper();
 
-    public CelestialSky() {
+    public CelestialSky(float mainStarSize) {
         super(Float.NaN, false, SkyType.NONE, false, false);
 
         starHelper.createStars(0.15F, 5000, 5000, 255, 255, 255);
         skyHelper.createLightSky();
         skyHelper.createDarkSky();
+        skyHelper.createCube(mainStarSize);
     }
 
     @Override

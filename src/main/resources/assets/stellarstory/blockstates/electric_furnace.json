@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "facing=north,running=false": { "model": "stellarstory:block/electric_furnace" },    "facing=north,running=true": { "model": "stellarstory:block/electric_furnace" },    "facing=south,running=false": { "model": "stellarstory:block/electric_furnace" },    "facing=south,running=true": { "model": "stellarstory:block/electric_furnace" },    "facing=east,running=false": { "model": "stellarstory:block/electric_furnace" },    "facing=east,running=true": { "model": "stellarstory:block/electric_furnace" },    "facing=west,running=false": { "model": "stellarstory:block/electric_furnace" },    "facing=west,running=true": { "model": "stellarstory:block/electric_furnace" }
+  }
+}

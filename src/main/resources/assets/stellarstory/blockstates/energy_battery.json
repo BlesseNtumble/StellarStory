@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "facing=north,running=false": { "model": "stellarstory:block/energy_battery" },    "facing=north,running=true": { "model": "stellarstory:block/energy_battery" },    "facing=south,running=false": { "model": "stellarstory:block/energy_battery" },    "facing=south,running=true": { "model": "stellarstory:block/energy_battery" },    "facing=east,running=false": { "model": "stellarstory:block/energy_battery" },    "facing=east,running=true": { "model": "stellarstory:block/energy_battery" },    "facing=west,running=false": { "model": "stellarstory:block/energy_battery" },    "facing=west,running=true": { "model": "stellarstory:block/energy_battery" }
+  }
+}

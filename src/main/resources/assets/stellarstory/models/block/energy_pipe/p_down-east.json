@@ -1,0 +1,42 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/polished_andesite",
+    "core": "minecraft:block/iron_block",
+    "body": "minecraft:block/polished_andesite"
+  },
+  "elements": [
+    {
+      "from": [4, 4, 4],
+      "to": [12, 12, 12],
+      "faces": {
+      "down": { "uv": [4, 4, 12, 12], "texture": "#core" },
+      "up": { "uv": [4, 4, 12, 12], "texture": "#core" },
+      "north": { "uv": [4, 4, 12, 12], "texture": "#core" },
+      "south": { "uv": [4, 4, 12, 12], "texture": "#core" },
+      "east": { "uv": [4, 4, 12, 12], "texture": "#core" },
+      "west": { "uv": [4, 4, 12, 12], "texture": "#core" }
+      }
+    },
+    {
+      "from": [5, 0, 5],
+      "to": [11, 4, 11],
+      "faces": {
+      "north": { "uv": [5, 12, 11, 16], "texture": "#body" },
+      "south": { "uv": [5, 12, 11, 16], "texture": "#body" },
+      "east": { "uv": [5, 12, 11, 16], "texture": "#body" },
+      "west": { "uv": [5, 12, 11, 16], "texture": "#body" }
+      }
+    },
+    {
+      "from": [12, 5, 5],
+      "to": [16, 11, 11],
+      "faces": {
+      "up": { "uv": [12, 5, 16, 11], "texture": "#body" },
+      "down": { "uv": [12, 5, 16, 11], "texture": "#body" },
+      "north": { "uv": [0, 5, 4, 11], "texture": "#body" },
+      "south": { "uv": [12, 5, 16, 11], "texture": "#body" }
+      }
+    }
+  ]
+}

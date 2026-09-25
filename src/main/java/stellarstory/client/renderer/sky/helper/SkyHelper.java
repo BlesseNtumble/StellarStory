@@ -297,6 +297,17 @@ public class SkyHelper {
      * Supports either 1 texture (applied to all faces) or 6 textures (one per face:
      * +Z, -Z, +X, -X, +Y, -Y). Uses immediate-mode POSITION_TEX_COLOR.
      *
+     * x, y, z	Позиция центра в системе координат неба (камера в 0,0,0; юниты условные, 100 ≈ «далеко», 1 ≈ «на голове»)	translate до scale, так что масштаб радиус не сдвигает
+     * rotX, rotY, rotZ	Наклон оси + самоповорот куба вокруг своих осей (градусы)	rotY обычно и есть суточное вращение; rotX/rotZ — наклон оси
+     * scale	Радиус куба	По сути угловой размер: asin(scale / расстояние)
+     * alpha	Непрозрачность граней	1.0F — нормально, у куба с текстурой обычно и не трогают
+     * timeOfDay	level.getTimeOfDay(partialTicks)	Управляет и орбитой, и направлением света
+     * elevationDeg	❗ Только раскраска: сдвигает терминатор	Позицию не меняет
+     * azimuthDeg	❗ Только раскраска: поворот линии света	Позицию не меняет
+     * orbitPhaseOffset	Фаза орбиты в долях суток (0.5 = противоположно солнцу)	❗ 0 орбиту не выключает, только сдвигает фазу
+     * orbitInclination	Наклон плоскости орбиты в градусах	При phaseOffset == 0 игнорируется и орбитой, и раскраской
+     * textures...	1 текстура на все грани или 6	Порядок 6 шт. = +Z, -Z, +X, -X, +Y, -Y (как CUBE_FACES)
+     *
      * @param orbitPhaseOffset orbit offset in day-fractions (0 = no orbit; non-zero enables sun-like orbit)
      * @param orbitInclination tilt of the orbit path in degrees relative to the horizon
      * @param textures either 1 texture for all faces, or 6 textures (one per face)
@@ -336,6 +347,61 @@ public class SkyHelper {
             buf.vertex(mat, v[3], v[4], v[5]).uv(1,1).color(b[i], b[i], b[i], alpha).endVertex();
             buf.vertex(mat, v[6], v[7], v[8]).uv(1,0).color(b[i], b[i], b[i], alpha).endVertex();
             buf.vertex(mat, v[9], v[10],v[11]).uv(0,0).color(b[i], b[i], b[i], alpha).endVertex();
+
+            BufferUploader.drawWithShader(buf.end());
+        }
+
+        poseStack.popPose();
+    }
+
+    /**
+     * Renders a planet that does NOT orbit the sky. Unlike {@link #renderLitCube},
+     * elevation/azimuth position the body (they are no longer shading-only), and the
+     * axial tilt is applied in world space BEFORE the spin, so the planet keeps its
+     * orientation instead of tumbling once per day.
+     *
+     * @param elevationDeg direction of the body: -90 = straight down, 0 = horizon, +90 = zenith
+     * @param azimuthDeg   compass angle, 0 = +Z, 90 = +X (ignored at elevation +/-90)
+     * @param distance     distance from the camera; must exceed size or the camera ends up inside
+     * @param tiltX, tiltZ axial tilt in degrees, applied before the spin
+     * @param spinDeg      self-rotation around the tilted local +Y axis
+     * @param size         cube half-extent; angular radius = asin(size / distance)
+     * @param sunTime      time of day driving the terminator; offset it to fake a planet phase
+     */
+    public void renderLitCubeFixed(PoseStack poseStack,
+                                   float elevationDeg, float azimuthDeg, float distance,
+                                   float tiltX, float tiltZ, float spinDeg,
+                                   float size, float alpha,
+                                   float sunTime,
+                                   ResourceLocation... textures) {
+        Matrix4f rotation = fixedRotation(tiltX, tiltZ, spinDeg);
+        float[] b = faceBrightnessFor(rotation, sunTime);
+        boolean multiTex = textures.length >= 6;
+
+        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+        if (!multiTex) {
+            RenderSystem.setShaderTexture(0, textures[0]);
+        }
+
+        poseStack.pushPose();
+        applyFixedPlacement(poseStack, elevationDeg, azimuthDeg, distance, size, tiltX, tiltZ, spinDeg);
+        Matrix4f mat = poseStack.last().pose();
+
+        for (int i = 0; i < 6; i++) {
+            if (multiTex) {
+                RenderSystem.setShaderTexture(0, textures[i]);
+            }
+
+            BufferBuilder buf = Tesselator.getInstance().getBuilder();
+            buf.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
+
+            float[] v = CUBE_FACES[i];
+            buf.vertex(mat, v[0], v[1], v[2]).uv(0, 1).color(b[i], b[i], b[i], alpha).endVertex();
+            buf.vertex(mat, v[3], v[4], v[5]).uv(1, 1).color(b[i], b[i], b[i], alpha).endVertex();
+            buf.vertex(mat, v[6], v[7], v[8]).uv(1, 0).color(b[i], b[i], b[i], alpha).endVertex();
+            buf.vertex(mat, v[9], v[10], v[11]).uv(0, 0).color(b[i], b[i], b[i], alpha).endVertex();
 
             BufferUploader.drawWithShader(buf.end());
         }
@@ -404,6 +470,54 @@ public class SkyHelper {
         RenderSystem.disableBlend();
         RenderSystem.defaultBlendFunc();
     }
+
+    /** Fixed-placement counterpart of {@link #renderAtmosphere}. Call AFTER renderLitCubeFixed. */
+    public void renderAtmosphereFixed(PoseStack poseStack,
+                                      float elevationDeg, float azimuthDeg, float distance,
+                                      float tiltX, float tiltZ, float spinDeg,
+                                      float size, float atmosphereScale, int layers,
+                                      float r, float g, float b, float alpha, float brightness,
+                                      float sunTime) {
+        Matrix4f rotation = fixedRotation(tiltX, tiltZ, spinDeg);
+        float[] br = faceBrightnessFor(rotation, sunTime);
+
+        RenderSystem.enableBlend();
+        RenderSystem.blendFuncSeparate(
+                GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE,
+                GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+        RenderSystem.depthMask(false);
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+        float step = 0.05F;
+
+        for (int i = layers - 1; i >= 0; i--) {
+            float layerScale = size * (atmosphereScale + i * step);
+            float layerAlpha = alpha * (1.0F - (float) i / layers) / layers;
+
+            poseStack.pushPose();
+            applyFixedPlacement(poseStack, elevationDeg, azimuthDeg, distance, layerScale, tiltX, tiltZ, spinDeg);
+
+            Matrix4f mat = poseStack.last().pose();
+            BufferBuilder buf = Tesselator.getInstance().getBuilder();
+            buf.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+
+            atmQuad(buf, mat, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1, r, g, b, br[0] * brightness * layerAlpha);
+            atmQuad(buf, mat, 1, -1, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, r, g, b, br[1] * brightness * layerAlpha);
+            atmQuad(buf, mat, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, 1, r, g, b, br[2] * brightness * layerAlpha);
+            atmQuad(buf, mat, -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, 1, -1, r, g, b, br[3] * brightness * layerAlpha);
+            atmQuad(buf, mat, -1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, -1, r, g, b, br[4] * brightness * layerAlpha);
+            atmQuad(buf, mat, -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1, r, g, b, br[5] * brightness * layerAlpha);
+
+            BufferUploader.drawWithShader(buf.end());
+            poseStack.popPose();
+        }
+
+        RenderSystem.depthMask(true);
+        RenderSystem.disableBlend();
+        RenderSystem.defaultBlendFunc();
+    }
+
 
     /** Helper: emit one colored quad (no UV) for the atmosphere shell. */
     private static void atmQuad(BufferBuilder buf, Matrix4f mat,
@@ -562,6 +676,48 @@ public class SkyHelper {
     private static float faceBrightness(float nx, float ny, float nz, Vector3f sun) {
         float dot = nx * sun.x + ny * sun.y + nz * sun.z;
         return 0.05F + 0.75F * Math.max(0.0F, dot);
+    }
+
+    /** Shared Lambert shading: rotates the sun into the cube's local frame via the inverse rotation. */
+    private static float[] faceBrightnessFor(Matrix4f rotation, float timeOfDay) {
+        Vector3f local = new Vector3f(sunDirection(timeOfDay));
+        new Matrix4f(rotation).invert().transformDirection(local);
+        local.normalize();
+
+        return new float[]{
+                faceBrightness( 0,  0,  1, local),  // +Z
+                faceBrightness( 0,  0, -1, local),  // -Z
+                faceBrightness( 1,  0,  0, local),  // +X
+                faceBrightness(-1,  0,  0, local),  // -X
+                faceBrightness( 0,  1,  0, local),  // +Y
+                faceBrightness( 0, -1,  0, local),  // -Y
+        };
+    }
+
+    /** Tilt first, spin second: the spin then runs around the already tilted local +Y axis. */
+    private static Matrix4f fixedRotation(float tiltX, float tiltZ, float spinDeg) {
+        Matrix4f m = new Matrix4f();
+        m.rotateX(tiltX * Mth.DEG_TO_RAD);
+        m.rotateZ(tiltZ * Mth.DEG_TO_RAD);
+        m.rotateY(spinDeg * Mth.DEG_TO_RAD);
+        return m;
+    }
+
+    /** Places a unit cube at (elevation, azimuth) * distance, scales it, then applies tilt + spin. */
+    private static void applyFixedPlacement(PoseStack poseStack, float elevationDeg, float azimuthDeg,
+                                            float distance, float size,
+                                            float tiltX, float tiltZ, float spinDeg) {
+        float el = elevationDeg * Mth.DEG_TO_RAD;
+        float az = azimuthDeg * Mth.DEG_TO_RAD;
+        poseStack.translate(Mth.cos(el) * Mth.sin(az) * distance,
+                Mth.sin(el) * distance,
+                Mth.cos(el) * Mth.cos(az) * distance);
+        if (size != 1.0F) poseStack.scale(size, size, size);
+        // Порядок совпадает с fixedRotation (Rx * Rz * Ry): спин крутит вокруг локальной Y,
+        // наклон применяется уже в мировой системе.
+        poseStack.mulPose(Axis.XP.rotationDegrees(tiltX));
+        poseStack.mulPose(Axis.ZP.rotationDegrees(tiltZ));
+        poseStack.mulPose(Axis.YP.rotationDegrees(spinDeg));
     }
 
     /**
