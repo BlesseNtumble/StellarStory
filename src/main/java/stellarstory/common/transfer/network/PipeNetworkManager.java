@@ -3,9 +3,15 @@ package stellarstory.common.transfer.network;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.ChunkStatus;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import org.jetbrains.annotations.Nullable;
+import stellarstory.api.transfer.ISideConfigurable;
 import stellarstory.common.blocks.pipe.AbstractPipeBlock;
 import stellarstory.common.config.StellarGeneralConfig;
 
@@ -16,6 +22,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 
 /**
@@ -36,6 +43,13 @@ public final class PipeNetworkManager {
     private static final Map<Level, PipeNetworkManager> MANAGERS = new HashMap<>();
     private static final Direction[] DIRS = Direction.values();
 
+    /**
+     * Период страховочного пробуждения спящих сетей, тиков. Сеть засыпает,
+     * когда не переносит энергию, а разбудить её должны умеют не только
+     * изменения графа, но и состояние машины (генератор начал гореть).
+     */
+    private static final int IDLE_WAKE_INTERVAL = 100;
+
     private final ServerLevel level;
     private final List<PipeNetwork> networks = new ArrayList<>();
     private final Map<BlockPos, PipeNetwork> networkByPos = new HashMap<>();
@@ -44,6 +58,12 @@ public final class PipeNetworkManager {
     private final ArrayDeque<BlockPos> floodQueue = new ArrayDeque<>();
     private final Set<BlockPos> queued = new HashSet<>();
     private final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+
+    /**
+     * Чанки, загруженные позже (после WorldLoad), ждут сканирования в тике.
+     * ChunkEvent.Load приходит с worker-потока, поэтому очередь конкурентная.
+     */
+    private final Queue<ChunkPos> chunkLoadQueue = new java.util.concurrent.ConcurrentLinkedQueue<>();
 
     // Статистика для /stellarstory pipe stats
     private long tickSamples = 0;
@@ -74,6 +94,14 @@ public final class PipeNetworkManager {
         MANAGERS.remove(level);
     }
 
+    /**
+     * Менеджер создаём на загрузке мира, а не по первому событию трубы:
+     * иначе события загрузки чанков придут раньше, и граф останется пустым.
+     */
+    public static void onLevelLoad(ServerLevel level) {
+        MANAGERS.computeIfAbsent(level, l -> new PipeNetworkManager(level));
+    }
+
     /** Вызывать из LevelTickEvent, Phase.END. */
     public static void tick(Level level) {
         PipeNetworkManager manager = MANAGERS.get(level);
@@ -85,6 +113,72 @@ public final class PipeNetworkManager {
     // ═══════════════════════════════════════════════════════════════
     // События графа
     // ═══════════════════════════════════════════════════════════════
+
+    /**
+     * Граф в NBT не пишется, поэтому после перезахода мира он пуст.
+     * Чанк догрузился — его трубы и машины должны встать в граф.
+     *
+     * ВАЖНО: это вызывается из ChunkEvent.Load, который может прийти с worker-
+     * потока. Здесь только кладём позицию в очередь — сканирование идёт в tick.
+     */
+    public void onChunkLoaded(ChunkPos pos) {
+        chunkLoadQueue.add(pos);
+    }
+
+    /**
+     * Сканирование загруженных чанков: ищем трубы и машины, помечаем их грязными.
+     * Вызывается из tickServer (главный поток).
+     */
+    private void processLoadedChunks() {
+        int processed = 0;
+        while (!chunkLoadQueue.isEmpty() && processed < 16) {
+            ChunkPos pos = chunkLoadQueue.poll();
+            if (level.getChunkSource().getChunk(pos.x, pos.z, ChunkStatus.FULL, false) instanceof LevelChunk chunk) {
+                scanChunk(chunk);
+            }
+            processed++;
+        }
+    }
+
+    /** Сканируем чанк: трубы внутри + машины → соседние трубы. */
+    private void scanChunk(LevelChunk chunk) {
+        int minY = level.getMinBuildHeight();
+        int baseX = chunk.getPos().getMinBlockX();
+        int baseZ = chunk.getPos().getMinBlockZ();
+        LevelChunkSection[] sections = chunk.getSections();
+        for (int i = 0; i < sections.length; i++) {
+            LevelChunkSection section = sections[i];
+            if (section.hasOnlyAir()) {
+                continue;
+            }
+            int yBase = minY + i * 16;
+            for (int y = 0; y < 16; y++) {
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        if (section.getBlockState(x, y, z).getBlock() instanceof AbstractPipeBlock) {
+                            dirty.add(new BlockPos(baseX + x, yBase + y, baseZ + z));
+                        }
+                    }
+                }
+            }
+        }
+        // Машины → помечаем соседние трубы грязными
+        for (BlockEntity be : chunk.getBlockEntities().values()) {
+            if (be instanceof ISideConfigurable) {
+                seedAround(be.getBlockPos());
+            }
+        }
+    }
+
+    /** Трубы вокруг машины — кандидаты на перестройку сети. */
+    public void seedAround(BlockPos machinePos) {
+        for (Direction dir : DIRS) {
+            cursor.setWithOffset(machinePos, dir);
+            if (level.getBlockState(cursor).getBlock() instanceof AbstractPipeBlock) {
+                dirty.add(cursor.immutable());
+            }
+        }
+    }
 
     public void onPipePlaced(BlockPos pos) {
         dirty.add(pos.immutable());
@@ -113,18 +207,50 @@ public final class PipeNetworkManager {
     private void tickServer() {
         long start = System.nanoTime();
 
+        processLoadedChunks();
         rebuildDirty();
 
         int interval = StellarGeneralConfig.PIPE_TICK_INTERVAL.get();
+        // Страховка от «засыпания»: сеть, которой в момент постройки не хватило
+        // партнёра (чанк машины ещё не догрузился), спит и сама бы не проснулась.
+        boolean wakeAll = level.getGameTime() % IDLE_WAKE_INTERVAL == 0;
+
         if (interval <= 1 || level.getGameTime() % interval == 0) {
             for (int i = 0; i < networks.size(); i++) {
-                networks.get(i).tick(level);
+                PipeNetwork network = networks.get(i);
+                if (wakeAll) {
+                    network.wake();
+                }
+                network.tick(level);
             }
         }
 
         lastTickNanos = System.nanoTime() - start;
         tickNanosTotal += lastTickNanos;
         tickSamples++;
+    }
+
+    /**
+     * Разбудить сети труб рядом с позицией: машина начала производить энергию
+     * (или изменила содержимое) — пассивная до этого сеть должна снова тикаться.
+     *
+     * Дёшево: только lookup по mapping, без перестройки графа.
+     */
+    public static void wakeNear(Level level, BlockPos pos) {
+        PipeNetworkManager manager = MANAGERS.get(level);
+        if (manager != null) {
+            manager.wakeAround(pos);
+        }
+    }
+
+    private void wakeAround(BlockPos pos) {
+        for (Direction dir : DIRS) {
+            cursor.setWithOffset(pos, dir);
+            PipeNetwork network = networkByPos.get(cursor);
+            if (network != null) {
+                network.wake();
+            }
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════

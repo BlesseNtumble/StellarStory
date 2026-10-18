@@ -26,6 +26,8 @@
   "block.stellarstory.grinder": "Grinder",
   "block.stellarstory.energy_pipe": "Energy Pipe",
   "item.stellarstory.energy_wrench": "Energy Wrench",
+  "item.stellarstory.energy_cell": "Energy Cell",
+  "tooltip.stellarstory.energy_stored": "Energy: %s / %s FE",
   "gui.stellarstory.side.down": "Down",
   "gui.stellarstory.side.up": "Up",
   "gui.stellarstory.side.north": "North",
@@ -36,5 +38,7 @@
   "gui.stellarstory.side_mode.input": "Input",
   "gui.stellarstory.side_mode.output": "Output",
   "gui.stellarstory.side_mode.both": "Input/Output",
-  "gui.stellarstory.side_mode.set": "%s: %s"
+  "gui.stellarstory.side_mode.set": "%s: %s",
+  "gui.stellarstory.machine.energy": "Energy",
+  "gui.stellarstory.machine.progress": "Progress"
 }

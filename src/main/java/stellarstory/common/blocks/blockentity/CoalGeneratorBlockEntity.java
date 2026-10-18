@@ -10,7 +10,6 @@ import net.minecraftforge.common.ForgeHooks;
 import org.jetbrains.annotations.NotNull;
 import stellarstory.api.energy.EnergyConfig;
 import stellarstory.api.transfer.SideConfig;
-import stellarstory.api.transfer.SlotRole;
 import stellarstory.common.init.StellarBlockEntities;
 
 /**
@@ -27,7 +26,6 @@ public class CoalGeneratorBlockEntity extends AbstractEnergyBlockEntity {
     public static final int ENERGY_PER_TICK = 40;
 
     private static final int FUEL = 0;
-    private static final SlotRole[] ROLES = {SlotRole.FUEL};
 
     private int burnTime = 0;
     private int burnTimeTotal = 0;
@@ -36,7 +34,7 @@ public class CoalGeneratorBlockEntity extends AbstractEnergyBlockEntity {
         super(StellarBlockEntities.COAL_GENERATOR.get(), pos, state,
                 EnergyConfig.provider(CAPACITY, MAX_EXTRACT),
                 SideConfig.generatorDefaults(),
-                ROLES);
+                1);
     }
 
     @Override
@@ -99,6 +97,25 @@ public class CoalGeneratorBlockEntity extends AbstractEnergyBlockEntity {
 
     public boolean isBurning() {
         return burnTime > 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Данные для GUI: полоса = остаток текущего куска топлива
+    // ═══════════════════════════════════════════════════════════════
+
+    @Override
+    public boolean hasGuiProgress() {
+        return true;
+    }
+
+    @Override
+    public float getGuiProgress() {
+        return getBurnProgress();
+    }
+
+    @Override
+    public boolean isWorking() {
+        return isBurning();
     }
 
     @Override

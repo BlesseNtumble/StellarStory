@@ -4,7 +4,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.energy.IEnergyStorage;
+import stellarstory.api.transfer.ISideConfigurable;
+import stellarstory.api.transfer.SideMode;
+import stellarstory.api.transfer.TransferKind;
 import stellarstory.common.config.StellarGeneralConfig;
 
 import java.util.ArrayList;
@@ -15,10 +20,14 @@ import java.util.List;
  * энергия внутри сети не маршрутизируется.
  *
  * Тик состоит из трёх фаз:
- *   1. simulate-опрос источников — сколько FE готово поступить;
- *   2. реальный забор этого объёма у источников;
- *   3. реальная раздача потребителям (сначала чистые потребители, затем накопители),
- *      а не разобранное возвращается источникам.
+ *   1. simulate-опрос эндпоинтов: кто сколько готов отдать (pureSupply — чистые
+ *      источники, bufferSupply — накопители) и кто сколько готов принять (demand);
+ *   2. реальный забор: budget = min(supply, demand, пропускная способность).
+ *      Накопитель выступает источником только когда чистых источников нет —
+ *      иначе он вычитает FE сам у себя и съедает бюджет;
+ *   3. раздача: сначала чистые потребители, затем накопители; не принято
+ *      возвращается чистым источникам, а они не приняли — остаётся в residual
+ *      и раздаётся следующим тиком.
  *
  * Стоимость тика — O(эндпоинтов): длина линии из 20 и из 2000 сегментов стоит одинаково.
  */
@@ -58,12 +67,21 @@ public final class EnergyNetwork extends PipeNetwork {
         for (BlockPos segment : segments) {
             for (Direction dir : DIRS) {
                 cursor.setWithOffset(segment, dir);
+                BlockState neighbor = level.getBlockState(cursor);
                 // Сосед-труба этой же сети — ребро, а не эндпоинт.
-                if (level.getBlockState(cursor).getBlock() == pipeBlock) {
+                if (neighbor.getBlock() == pipeBlock || !neighbor.hasBlockEntity()) {
                     continue;
                 }
+                Direction machineFace = dir.getOpposite();
+                BlockEntity be = level.getBlockEntity(cursor);
+                if (be instanceof ISideConfigurable configurable) {
+                    SideMode mode = configurable.getSideConfig().get(TransferKind.ENERGY, machineFace);
+                    if (!mode.canReceive() && !mode.canExtract()) {
+                        continue; // сторона отключена — контакта нет
+                    }
+                }
                 // pipeFace — грань трубы, machineFace — противоположная ей грань машины.
-                endpoints.add(new EnergyEndpoint(cursor.immutable(), dir.getOpposite(), dir));
+                endpoints.add(new EnergyEndpoint(cursor.immutable(), machineFace, dir));
             }
         }
         wake();
@@ -81,10 +99,16 @@ public final class EnergyNetwork extends PipeNetwork {
         consumers.clear();
         buffers.clear();
 
-        int available = residual;
         int sourceCount = 0;
+        int pureSupply = 0;
+        int bufferSupply = 0;
+        int demand = 0;
 
-        // Фаза 1: сколько источники готовы отдать (только simulate, без мутаций).
+        // Фаза 1: сколько источники готовы отдать и потребители принять (simulate, без мутаций).
+        //
+        // Разделение принципиальное: накопитель (может и отдавать, и принимать) — это
+        // источник только в крайнем случае. Иначе он забирает FE сам у себя, съедает
+        // бюджет сети, и генератор в этот тик не выгружается вовсе.
         for (int i = 0; i < endpoints.size(); i++) {
             IEnergyStorage storage = endpoints.get(i).storage(level, recheck);
             if (storage == null) {
@@ -93,34 +117,56 @@ public final class EnergyNetwork extends PipeNetwork {
             int give = storage.extractEnergy(limit, true);
             int room = storage.receiveEnergy(limit, true);
 
-            if (give > 0) {
-                sourceWants = ensureCapacity(sourceWants, sourceCount + 1);
-                sourceWants[sourceCount++] = give;
-                sources.add(storage);
-                available += give;
-            }
             if (room > 0) {
-                // Тот, кто умеет и отдавать, — накопитель: сначала кормим чистых потребителей.
+                // Бюджет всё равно упирается в limit, поэтому накопление режем по нему:
+                // так исключаем переполнение int на большой сети.
+                demand = Math.min(limit, demand + room);
                 if (give > 0) {
                     buffers.add(storage);
                 } else {
                     consumers.add(storage);
                 }
             }
+            if (give > 0) {
+                if (room > 0) {
+                    bufferSupply = Math.min(limit, bufferSupply + give);
+                } else {
+                    sourceWants = ensureCapacity(sourceWants, sourceCount + 1);
+                    sourceWants[sourceCount++] = give;
+                    sources.add(storage);
+                    pureSupply = Math.min(limit, pureSupply + give);
+                }
+            }
         }
 
-        if (available <= 0 || (consumers.isEmpty() && buffers.isEmpty())) {
+        int supply = pureSupply > 0 ? pureSupply : bufferSupply;
+        if (supply <= 0 || demand <= 0) {
             return false;
         }
 
-        // Фаза 2: реально забираем у источников не больше пропускной способности сети.
-        // residual (недорозданный остаток прошлого тика) тоже входит в бюджет
-        // и раздаётся вместе со свежевзятым — иначе энергия исчезает.
-        int budget = Math.min(available, limit);
+        // Фаза 2: забираем не больше пропускной способности И не больше реального спроса.
+        // Ограничение по спросу важнее, чем кажется: сверх принятого отдать некуда,
+        // а чистый источник (maxReceive = 0) непринятое не примет — оно осело бы в
+        // residual и следующими тиками блокировало бы новый забор.
+        //
+        // Остаток прошлого тика в бюджет не входит: он раздается сверху, иначе
+        // накопленный residual обнулил бы want и сеть встала бы с полным генератором.
+        int budget = Math.min(Math.min(supply, demand), limit);
         int taken = 0;
-        for (int i = 0; i < sources.size() && taken + residual < budget; i++) {
-            int want = Math.min(budget - taken - residual, sourceWants[i]);
-            taken += sources.get(i).extractEnergy(want, false);
+
+        if (budget > 0) {
+            if (pureSupply > 0) {
+                for (int i = 0; i < sources.size() && taken < budget; i++) {
+                    taken += sources.get(i).extractEnergy(Math.min(budget - taken, sourceWants[i]), false);
+                }
+            } else if (!consumers.isEmpty()) {
+                // Чистых источников нет — разряжаем накопители в чистых потребителей.
+                // Без потребителей не начинаем: иначе батарея отдаёт FE сама себе,
+                // distribute возвращает их же обратно, и сеть крутит холостой цикл.
+                for (int i = 0; i < buffers.size() && taken < budget; i++) {
+                    taken += buffers.get(i).extractEnergy(budget - taken, false);
+                }
+            }
         }
 
         // Фаза 3: раздаём взятое + остаток; непринятое возвращаем источникам, а не уничтожаем.

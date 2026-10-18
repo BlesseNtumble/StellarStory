@@ -7,7 +7,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
 import stellarstory.api.energy.EnergyConfig;
 import stellarstory.api.transfer.SideConfig;
-import stellarstory.api.transfer.SlotRole;
 import stellarstory.common.init.StellarBlockEntities;
 
 import java.util.HashMap;
@@ -27,7 +26,6 @@ public class GrinderBlockEntity extends AbstractMachineBlockEntity {
 
     private static final int INPUT = 0;
     private static final int OUTPUT = 1;
-    private static final SlotRole[] ROLES = {SlotRole.INPUT, SlotRole.OUTPUT};
 
     private static final Map<Item, ItemStack> RECIPES = new HashMap<>();
 
@@ -43,7 +41,7 @@ public class GrinderBlockEntity extends AbstractMachineBlockEntity {
         super(StellarBlockEntities.GRINDER.get(), pos, state,
                 EnergyConfig.receiver(CAPACITY, MAX_RECEIVE),
                 SideConfig.machineDefaults(),
-                ROLES);
+                2);
     }
 
     @Override
@@ -82,7 +80,7 @@ public class GrinderBlockEntity extends AbstractMachineBlockEntity {
             return;
         }
         inventory.extractItem(INPUT, 1, false);
-        inventory.insertItem(OUTPUT, result, false);
+        insertResult(OUTPUT, result);
     }
 
     @Override

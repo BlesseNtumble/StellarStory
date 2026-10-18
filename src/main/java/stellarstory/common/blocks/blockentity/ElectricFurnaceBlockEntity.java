@@ -8,7 +8,6 @@ import net.minecraft.world.item.crafting.SmeltingRecipe;
 import net.minecraft.world.level.block.state.BlockState;
 import stellarstory.api.energy.EnergyConfig;
 import stellarstory.api.transfer.SideConfig;
-import stellarstory.api.transfer.SlotRole;
 import stellarstory.common.init.StellarBlockEntities;
 
 import java.util.Optional;
@@ -26,13 +25,12 @@ public class ElectricFurnaceBlockEntity extends AbstractMachineBlockEntity {
 
     private static final int INPUT = 0;
     private static final int OUTPUT = 1;
-    private static final SlotRole[] ROLES = {SlotRole.INPUT, SlotRole.OUTPUT};
 
     public ElectricFurnaceBlockEntity(BlockPos pos, BlockState state) {
         super(StellarBlockEntities.ELECTRIC_FURNACE.get(), pos, state,
                 EnergyConfig.receiver(CAPACITY, MAX_RECEIVE),
                 SideConfig.machineDefaults(),
-                ROLES);
+                2);
     }
 
     @Override
@@ -74,7 +72,7 @@ public class ElectricFurnaceBlockEntity extends AbstractMachineBlockEntity {
                 return;
             }
             inventory.extractItem(INPUT, 1, false);
-            inventory.insertItem(OUTPUT, result.copy(), false);
+            insertResult(OUTPUT, result);
         });
     }
 

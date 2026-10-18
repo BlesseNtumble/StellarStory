@@ -7,6 +7,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import stellarstory.StellarStory;
 import stellarstory.common.equipment.SuitMenu;
+import stellarstory.common.menu.MachineMenu;
 
 /**
  * Регистрация типов меню (ScreenHandler) для мода.
@@ -24,5 +25,14 @@ public class StellarMenuTypes {
                     IForgeMenuType.create(
                             (windowId, inv, data) -> new SuitMenu(windowId, inv)
                     )
+            );
+
+    /**
+     * Единое меню всех механизмов: слоты BlockEntity + инвентарь игрока.
+     * Позиция блока передаётся в буфере, на клиенте BlockEntity ищется в мире.
+     */
+    public static final RegistryObject<MenuType<MachineMenu>> MACHINE_MENU =
+            REGISTRY.register("machine_menu", () ->
+                    IForgeMenuType.create(MachineMenu::new)
             );
 }

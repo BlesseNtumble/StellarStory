@@ -1,6 +1,7 @@
 package stellarstory.common.blocks;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -21,6 +22,7 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.BlockHitResult;
+import net.minecraftforge.network.NetworkHooks;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import stellarstory.common.blocks.blockentity.AbstractEnergyBlockEntity;
@@ -78,10 +80,11 @@ public abstract class AbstractEnergyBlock extends BaseEntityBlock {
     }
 
     /**
-     * Ручная загрузка/выгрузка до появления GUI:
-     *   ПКМ с предметом  — вставить стак в первый вставляемый слот;
-     *   Shift+ПКМ пустой рукой — забрать стак из первого извлекаемого слота.
-     * Мутация только на сервере; клиент лишь предсказывает успех для анимации руки.
+     * ПКМ — открыть GUI механизма.
+     * Shift+ПКМ пустой рукой — быстро вытащить стак (быстрый доступ без окна).
+     * Shift+ПКМ с предметом — PASS, чтобы предмет отработал штатно
+     * (поставить блок, повернуть ключом и т.п.).
+     * Ключ перехватывает взаимодействие раньше — см. EnergyWrenchItem#onItemUseFirst.
      */
     @Override
     public @NotNull InteractionResult use(@NotNull BlockState state, @NotNull Level level, @NotNull BlockPos pos,
@@ -91,25 +94,24 @@ public abstract class AbstractEnergyBlock extends BaseEntityBlock {
             return InteractionResult.PASS;
         }
 
-        boolean emptyHand = player.getItemInHand(hand).isEmpty();
-
-        if (player.isSecondaryUseActive() && emptyHand) {
+        if (player.isSecondaryUseActive()) {
+            if (!player.getItemInHand(hand).isEmpty()) {
+                return InteractionResult.PASS;
+            }
             if (!level.isClientSide) {
                 machine.playerExtract(player);
             }
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
 
-        if (!emptyHand) {
-            boolean inserted = level.isClientSide
-                    ? machine.hasInsertableSlot()
-                    : machine.playerInsert(player, hand);
-            if (inserted) {
-                return InteractionResult.sidedSuccess(level.isClientSide);
+        if (!level.isClientSide) {
+            if (machine.stillValid(player)) {
+                // Меню создаётся на сервере через MenuProvider, а позиция блока уезжает
+                // в буфер сообщения открытия — на ней клиент найдёт свой BlockEntity.
+                NetworkHooks.openScreen((ServerPlayer) player, machine, pos);
             }
         }
-
-        return InteractionResult.PASS;
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Nullable

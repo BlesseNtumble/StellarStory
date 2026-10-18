@@ -8,7 +8,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import stellarstory.api.energy.EnergyConfig;
 import stellarstory.api.transfer.SideConfig;
-import stellarstory.api.transfer.SlotRole;
 import stellarstory.common.blocks.AbstractEnergyBlock;
 
 /**
@@ -21,8 +20,9 @@ public abstract class AbstractMachineBlockEntity extends AbstractEnergyBlockEnti
     protected boolean running = false;
 
     protected AbstractMachineBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state,
-                                         EnergyConfig config, SideConfig defaultSides, SlotRole[] slotRoles) {
-        super(type, pos, state, config, defaultSides, slotRoles);
+                                         EnergyConfig config, SideConfig defaultSides,
+                                         int slotCount, int... fluidTankCapacities) {
+        super(type, pos, state, config, defaultSides, slotCount, fluidTankCapacities);
     }
 
     /** FE, сгорающие за один тик работы. */
@@ -84,6 +84,21 @@ public abstract class AbstractMachineBlockEntity extends AbstractEnergyBlockEnti
     /** Энергия 0..1 для будущего GUI. */
     public float getEnergyRatio() {
         return energyConfig.capacity() <= 0 ? 0f : (float) energy / energyConfig.capacity();
+    }
+
+    @Override
+    public boolean hasGuiProgress() {
+        return true;
+    }
+
+    @Override
+    public float getGuiProgress() {
+        return getProgress();
+    }
+
+    @Override
+    public boolean isWorking() {
+        return running;
     }
 
     @Override

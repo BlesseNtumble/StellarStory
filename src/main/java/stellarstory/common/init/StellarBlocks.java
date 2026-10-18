@@ -7,9 +7,9 @@ import net.minecraftforge.registries.RegistryObject;
 import stellarstory.StellarStory;
 import stellarstory.common.blocks.CoalGeneratorBlock;
 import stellarstory.common.blocks.ElectricFurnaceBlock;
-import stellarstory.common.blocks.EnergyBatteryBlock;
 import stellarstory.common.blocks.GrinderBlock;
 import stellarstory.common.blocks.MoonBaseBlock;
+import stellarstory.common.blocks.EnergyBatteryBlock;
 import stellarstory.common.blocks.pipe.EnergyPipeBlock;
 
 public class StellarBlocks {

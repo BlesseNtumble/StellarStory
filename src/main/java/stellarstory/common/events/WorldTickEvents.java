@@ -5,7 +5,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.level.ChunkEvent;
 import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -76,4 +78,29 @@ public class WorldTickEvents {
         }
     }
 
+    /**
+     * Граф труб не сериализуется — после перезахода мира он пуст.
+     * Создаём менеджер и просим его отсканировать загруженные машины.
+     */
+    @SubscribeEvent
+    public static void onLevelLoad(LevelEvent.Load e) {
+        if (e.getLevel() instanceof ServerLevel serverLevel) {
+            PipeNetworkManager.onLevelLoad(serverLevel);
+        }
+    }
+
+    /**
+     * Чанк догрузился позже (игрок уходит в новые чанки): его машины и трубы
+     * должны встать в граф, иначе линия на границе чанков не заработает.
+     */
+    @SubscribeEvent
+    public static void onChunkLoad(ChunkEvent.Load e) {
+        if (!(e.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        PipeNetworkManager manager = PipeNetworkManager.find((Level) level);
+        if (manager != null) {
+            manager.onChunkLoaded(e.getChunk().getPos());
+        }
+    }
 }

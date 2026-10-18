@@ -26,6 +26,8 @@
   "block.stellarstory.grinder": "Дробитель",
   "block.stellarstory.energy_pipe": "Энерготруба",
   "item.stellarstory.energy_wrench": "Гаечный ключ",
+  "item.stellarstory.energy_cell": "Энергоячейка",
+  "tooltip.stellarstory.energy_stored": "Энергия: %s / %s FE",
   "gui.stellarstory.side.down": "Низ",
   "gui.stellarstory.side.up": "Верх",
   "gui.stellarstory.side.north": "Север",
@@ -36,5 +38,7 @@
   "gui.stellarstory.side_mode.input": "Вход",
   "gui.stellarstory.side_mode.output": "Выход",
   "gui.stellarstory.side_mode.both": "Вход/Выход",
-  "gui.stellarstory.side_mode.set": "%s: %s"
+  "gui.stellarstory.side_mode.set": "%s: %s",
+  "gui.stellarstory.machine.energy": "Энергия",
+  "gui.stellarstory.machine.progress": "Прогресс"
 }

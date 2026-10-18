@@ -3,8 +3,12 @@ package stellarstory.common.blocks.blockentity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -14,6 +18,9 @@ import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.energy.IEnergyStorage;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
@@ -23,18 +30,25 @@ import stellarstory.api.energy.EnergyConfig;
 import stellarstory.api.transfer.ISideConfigurable;
 import stellarstory.api.transfer.SideConfig;
 import stellarstory.api.transfer.SideMode;
-import stellarstory.api.transfer.SlotRole;
 import stellarstory.api.transfer.TransferKind;
+import stellarstory.common.menu.MachineMenu;
+import stellarstory.common.transfer.SidedFluidHandler;
 import stellarstory.common.transfer.SidedItemHandler;
+import stellarstory.common.transfer.network.PipeNetworkManager;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Базовый BlockEntity механизма: энергия (Forge Energy) + инвентарь + настраиваемые роли сторон.
+ * Базовый BlockEntity механизма: энергия (Forge Energy) + инвентарь + жидкостные баки
+ * + настраиваемые роли сторон для ENERGY / ITEM / FLUID.
  *
- * Ограничители сторон (SidedEnergy / SidedItemHandler) читают SideConfig в момент обращения,
- * поэтому кэшированные LazyOptional переживают смену настроек игроком.
+ * Ограничители сторон (SidedEnergy / SidedItemHandler / SidedFluidHandler) читают
+ * SideConfig в момент обращения, поэтому кэшированные LazyOptional переживают
+ * смену настроек игроком — инвалидация не нужна.
  */
 public abstract class AbstractEnergyBlockEntity extends BlockEntity
-        implements IEnergyTickedBlockEntity, ISideConfigurable {
+        implements IEnergyTickedBlockEntity, ISideConfigurable, MenuProvider {
 
     /** Direction.values() клонирует массив при каждом вызове — держим один раз. */
     protected static final Direction[] DIRS = Direction.values();
@@ -42,10 +56,13 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
     /** Индекс для null-стороны (внутренний доступ). */
     private static final int NULL_SIDE_INDEX = 6;
 
+    /** Квадрат дистанции ванильного stillValid (8 блоков). */
+    private static final double MAX_USE_DISTANCE_SQR = 64.0D;
+
     protected final EnergyConfig energyConfig;
     protected final SideConfig sideConfig;
-    protected final SlotRole[] slotRoles;
     protected final ItemStackHandler inventory;
+    protected final List<FluidTank> tanks = new ArrayList<>();
 
     protected int energy = 0;
 
@@ -53,14 +70,16 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
     private final LazyOptional<IEnergyStorage>[] energyCaps = new LazyOptional[7];
     @SuppressWarnings("unchecked")
     private final LazyOptional<IItemHandler>[] itemCaps = new LazyOptional[7];
+    @SuppressWarnings("unchecked")
+    private final LazyOptional<IFluidHandler>[] fluidCaps = new LazyOptional[7];
 
     protected AbstractEnergyBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state,
-                                        EnergyConfig config, SideConfig defaultSides, SlotRole[] slotRoles) {
+                                        EnergyConfig config, SideConfig defaultSides,
+                                        int slotCount, int... fluidTankCapacities) {
         super(type, pos, state);
         this.energyConfig = config;
         this.sideConfig = defaultSides;
-        this.slotRoles = slotRoles;
-        this.inventory = new ItemStackHandler(slotRoles.length) {
+        this.inventory = new ItemStackHandler(slotCount) {
             @Override
             protected void onContentsChanged(int slot) {
                 setChanged();
@@ -68,10 +87,22 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
 
             @Override
             public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-                if (!slotRoles[slot].insertable) {
-                    return true;
-                }
                 return AbstractEnergyBlockEntity.this.isItemValidForSlot(slot, stack);
+            }
+        };
+        for (int cap : fluidTankCapacities) {
+            if (cap > 0) {
+                tanks.add(createFluidTank(cap));
+            }
+        }
+    }
+
+    /** Переопределяемая фабрика танка — для кастомных валидаторов. */
+    protected FluidTank createFluidTank(int capacity) {
+        return new FluidTank(capacity) {
+            @Override
+            protected void onContentsChanged() {
+                setChanged();
             }
         };
     }
@@ -104,6 +135,9 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
         if (added > 0) {
             energy += added;
             setChanged();
+            // Генератор начал/продолжил вырабатывать — сеть должна проснуться,
+            // даже если до этого спала (чанк машины загрузился позже).
+            PipeNetworkManager.wakeNear(level, worldPosition);
         }
     }
 
@@ -182,8 +216,106 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
         return true;
     }
 
+    /**
+     * Внутренняя запись результата: setStackInSlot не проходит через isItemValid,
+     * поэтому валидация ограничивает только игрока и соседей (трубы/хопперы),
+     * но не сам механизм.
+     */
+    protected void insertResult(int slot, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return;
+        }
+        ItemStack current = inventory.getStackInSlot(slot);
+        if (current.isEmpty()) {
+            inventory.setStackInSlot(slot, stack.copy());
+            return;
+        }
+        if (ItemHandlerHelper.canItemStacksStack(current, stack)) {
+            int room = current.getMaxStackSize() - current.getCount();
+            int toAdd = Math.min(room, stack.getCount());
+            if (toAdd > 0) {
+                current.grow(toAdd);
+                inventory.setStackInSlot(slot, current);
+            }
+        }
+    }
+
     protected ItemStack stackInSlot(int slot) {
         return inventory.getStackInSlot(slot);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Данные для GUI (меню читает только их)
+    // ═══════════════════════════════════════════════════════════════
+
+    /** Число слотов, которые меню покажет вверху окна. */
+    public int getSlotCount() {
+        return inventory.getSlots();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Жидкости
+    // ═══════════════════════════════════════════════════════════════
+
+    /** Число баков (0, если машина работает без жидкостей). */
+    public int getTankCount() {
+        return tanks.size();
+    }
+
+    /** Бак по индексу — для внутренней логики машины. */
+    public FluidTank getTank(int index) {
+        return tanks.get(index);
+    }
+
+    /** Сколько жидкости сейчас в N-м баке (для GUI). */
+    public int getFluidAmount(int index) {
+        return tanks.get(index).getFluidAmount();
+    }
+
+    /** Ёмкость N-го бака (для GUI). */
+    public int getTankCapacity(int index) {
+        return tanks.get(index).getCapacity();
+    }
+
+    /** Содержимое N-го бака (для GUI). */
+    public FluidStack getFluidInTank(int index) {
+        return tanks.get(index).getFluid();
+    }
+
+    /** Есть ли прогресс, который стоит рисовать (полоса/стрелка). */
+    public boolean hasGuiProgress() {
+        return false;
+    }
+
+    /** Прогресс текущего цикла 0..1. */
+    public float getGuiProgress() {
+        return 0f;
+    }
+
+    /** Занята ли машина делом прямо сейчас. */
+    public boolean isWorking() {
+        return false;
+    }
+
+    /** Заголовок окна = название блока. */
+    @Override
+    public @NotNull Component getDisplayName() {
+        return Component.translatable(getBlockState().getBlock().getDescriptionId());
+    }
+
+    /** Вызывается только на сервере при открытии окна. */
+    @Override
+    public @NotNull AbstractContainerMenu createMenu(int windowId, @NotNull Inventory inv, @NotNull Player player) {
+        return new MachineMenu(windowId, inv, this);
+    }
+
+    /** Окно живо, пока блок на месте и игрок рядом (ванильное правило 8 блоков). */
+    public boolean stillValid(@NotNull Player player) {
+        if (isRemoved()) {
+            return false;
+        }
+        return player.distanceToSqr(worldPosition.getX() + 0.5D, worldPosition.getY() + 0.5D,
+                worldPosition.getZ() + 0.5D) <= MAX_USE_DISTANCE_SQR;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -192,8 +324,8 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
 
     /** Есть ли слот, в который игрок может что-то положить (для предсказания на клиенте). */
     public boolean hasInsertableSlot() {
-        for (SlotRole role : slotRoles) {
-            if (role.insertable) {
+        for (int slot = 0; slot < inventory.getSlots(); slot++) {
+            if (inventory.getStackInSlot(slot).isEmpty()) {
                 return true;
             }
         }
@@ -201,18 +333,14 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
     }
 
     /**
-     * ПКМ с предметом в руке: вставить стак в первый вставляемый слот.
-     * Вызывать только на сервере. @return true, если что-то реально вставлено.
+     * ПКМ с предметом в руке: вставить стак в первый пустой слот.
      */
     public boolean playerInsert(Player player, InteractionHand hand) {
         ItemStack held = player.getItemInHand(hand);
         if (held.isEmpty()) {
             return false;
         }
-        for (int slot = 0; slot < slotRoles.length; slot++) {
-            if (!slotRoles[slot].insertable) {
-                continue;
-            }
+        for (int slot = 0; slot < inventory.getSlots(); slot++) {
             ItemStack rest = inventory.insertItem(slot, held, false);
             if (rest.getCount() != held.getCount()) {
                 player.setItemInHand(hand, rest);
@@ -223,14 +351,10 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
     }
 
     /**
-     * Shift+ПКМ пустой рукой: забрать стак из первого извлекаемого слота.
-     * Вызывать только на сервере. @return true, если что-то реально выдано.
+     * Shift+ПКМ пустой рукой: забрать стак из первого непустого слота.
      */
     public boolean playerExtract(Player player) {
-        for (int slot = 0; slot < slotRoles.length; slot++) {
-            if (!slotRoles[slot].extractable) {
-                continue;
-            }
+        for (int slot = 0; slot < inventory.getSlots(); slot++) {
             ItemStack extracted = inventory.extractItem(slot, 64, false);
             if (!extracted.isEmpty()) {
                 ItemHandlerHelper.giveItemToPlayer(player, extracted);
@@ -243,7 +367,6 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
     // ═══════════════════════════════════════════════════════════════
     // Capability
     // ═══════════════════════════════════════════════════════════════
-
     @Override
     public @NotNull <T> LazyOptional<T> getCapability(@NotNull Capability<T> cap, @Nullable Direction side) {
         if (!isRemoved()) {
@@ -252,6 +375,9 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
             }
             if (cap == ForgeCapabilities.ITEM_HANDLER && inventory.getSlots() > 0) {
                 return itemCap(side).cast();
+            }
+            if (cap == ForgeCapabilities.FLUID_HANDLER && !tanks.isEmpty()) {
+                return fluidCap(side).cast();
             }
         }
         return super.getCapability(cap, side);
@@ -275,10 +401,19 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
             if (side == null) {
                 cached = LazyOptional.of(() -> inventory);
             } else {
-                SidedItemHandler handler = new SidedItemHandler(inventory, side, sideConfig, slotRoles);
-                cached = LazyOptional.of(() -> handler);
+                cached = LazyOptional.of(() -> new SidedItemHandler(inventory, side, sideConfig));
             }
             itemCaps[index] = cached;
+        }
+        return cached;
+    }
+
+    private LazyOptional<IFluidHandler> fluidCap(@Nullable Direction side) {
+        int index = side == null ? NULL_SIDE_INDEX : side.ordinal();
+        LazyOptional<IFluidHandler> cached = fluidCaps[index];
+        if (cached == null) {
+            cached = LazyOptional.of(() -> new SidedFluidHandler(tanks, side, sideConfig));
+            fluidCaps[index] = cached;
         }
         return cached;
     }
@@ -294,6 +429,10 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
             if (itemCaps[i] != null) {
                 itemCaps[i].invalidate();
                 itemCaps[i] = null;
+            }
+            if (fluidCaps[i] != null) {
+                fluidCaps[i].invalidate();
+                fluidCaps[i] = null;
             }
         }
     }
@@ -369,21 +508,17 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
         return next;
     }
 
-    /** Пересобрать карты видимых слотов и обновить блок у клиента. */
+    /**
+     * Хук после изменения side-config: соседние трубы должны пересобрать
+     * рукава — при DISABLED соединение рвётся и визуально, и в графе.
+     */
     protected void onSideConfigChanged() {
-        for (LazyOptional<IItemHandler> cap : itemCaps) {
-            if (cap != null) {
-                cap.ifPresent(handler -> {
-                    if (handler instanceof SidedItemHandler sided) {
-                        sided.refresh();
-                    }
-                });
-            }
-        }
         setChanged();
-        if (level != null && !level.isClientSide()) {
+        if (level != null && !level.isClientSide) {
             BlockState state = getBlockState();
-            level.sendBlockUpdated(worldPosition, state, state, Block.UPDATE_ALL);
+            level.sendBlockUpdated(worldPosition, state, state, Block.UPDATE_CLIENTS);
+            // neighborChanged у соседних труб: пересоберут рукава и пометят сеть грязной.
+            level.updateNeighborsAt(worldPosition, state.getBlock());
         }
     }
 
@@ -399,6 +534,7 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
         if (inventory.getSlots() > 0) {
             tag.put("Inventory", inventory.serializeNBT());
         }
+        saveTanks(tag);
     }
 
     @Override
@@ -408,6 +544,32 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
         sideConfig.load(tag);
         if (inventory.getSlots() > 0 && tag.contains("Inventory")) {
             inventory.deserializeNBT(tag.getCompound("Inventory"));
+        }
+        loadTanks(tag);
+    }
+
+    /** Баки сериализуются в под-тег по индексу. */
+    protected void saveTanks(CompoundTag tag) {
+        if (tanks.isEmpty()) {
+            return;
+        }
+        CompoundTag tanksTag = new CompoundTag();
+        for (int i = 0; i < tanks.size(); i++) {
+            tanksTag.put("Tank" + i, tanks.get(i).writeToNBT(new CompoundTag()));
+        }
+        tag.put("Tanks", tanksTag);
+    }
+
+    protected void loadTanks(CompoundTag tag) {
+        if (tanks.isEmpty() || !tag.contains("Tanks")) {
+            return;
+        }
+        CompoundTag tanksTag = tag.getCompound("Tanks");
+        for (int i = 0; i < tanks.size(); i++) {
+            String key = "Tank" + i;
+            if (tanksTag.contains(key)) {
+                tanks.get(i).readFromNBT(tanksTag.getCompound(key));
+            }
         }
     }
 
@@ -427,6 +589,14 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
     protected void writeSyncData(CompoundTag tag) {
         tag.putInt("Energy", energy);
         sideConfig.save(tag);
+        // Баки: синхронизируем содержимое (amount + fluid type).
+        if (!tanks.isEmpty()) {
+            CompoundTag tanksTag = new CompoundTag();
+            for (int i = 0; i < tanks.size(); i++) {
+                tanksTag.put("Tank" + i, tanks.get(i).getFluid().writeToNBT(new CompoundTag()));
+            }
+            tag.put("SyncTanks", tanksTag);
+        }
     }
 
     protected void readSyncData(CompoundTag tag) {
@@ -434,5 +604,14 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
             energy = Math.max(0, Math.min(energyConfig.capacity(), tag.getInt("Energy")));
         }
         sideConfig.load(tag);
+        if (tag.contains("SyncTanks")) {
+            CompoundTag tanksTag = tag.getCompound("SyncTanks");
+            for (int i = 0; i < tanks.size(); i++) {
+                String key = "Tank" + i;
+                if (tanksTag.contains(key)) {
+                    tanks.get(i).setFluid(FluidStack.loadFluidStackFromNBT(tanksTag.getCompound(key)));
+                }
+            }
+        }
     }
 }

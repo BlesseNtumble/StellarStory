@@ -9,6 +9,7 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import stellarstory.StellarStory;
 import stellarstory.common.blocks.MoonBaseBlock;
+import stellarstory.common.item.EnergyCellItem;
 import stellarstory.common.item.EnergyWrenchItem;
 
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ public class StellarItems {
 
     // Энергетические механизмы
     public static final RegistryObject<Item> ENERGY_BATTERY = block(StellarBlocks.ENERGY_BATTERY);
+    public static final RegistryObject<Item> ENERGY_CELL = REGISTRY.register("energy_cell", EnergyCellItem::new);
     public static final RegistryObject<Item> COAL_GENERATOR = block(StellarBlocks.COAL_GENERATOR);
     public static final RegistryObject<Item> ELECTRIC_FURNACE = block(StellarBlocks.ELECTRIC_FURNACE);
     public static final RegistryObject<Item> GRINDER = block(StellarBlocks.GRINDER);

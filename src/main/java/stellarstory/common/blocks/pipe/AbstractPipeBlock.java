@@ -7,6 +7,7 @@ import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -15,6 +16,9 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
+import stellarstory.api.transfer.ISideConfigurable;
+import stellarstory.api.transfer.SideMode;
+import stellarstory.api.transfer.TransferKind;
 import stellarstory.common.transfer.network.PipeNetworkManager;
 
 import java.util.Map;
@@ -24,7 +28,7 @@ import java.util.Map;
  * а соединения — свойства блока (флаг на каждую грань).
  *
  * Модель собирается из ядра и рукавов по граням с connection=true — как в IC2,
- * но средствами ванильных блокстейтов: 64 варианта, клиентского кода нет.
+ * но средствами ванильных блокстейтов: multipart, клиентского кода нет.
  *
  * В 1.20.1 нет блочного хука getCapability(BlockState, BlockGetter, BlockPos, Direction)
  * (он появился в 1.20.2), поэтому труба не отдаёт capability на своей позиции:
@@ -169,20 +173,40 @@ public abstract class AbstractPipeBlock extends Block {
      * Труба соединяется со своей трубой (труба другого типа — другая сеть, рисовать
      * мост между ними значит врать игроку) и с блоками, у которых есть BlockEntity:
      * машины, сундуки, хопперы.
+     *
+     * if (sideConfigurable) — проверяем режим стороны: DISABLED = соединения нет.
      */
-    protected boolean canConnectTo(@NotNull BlockState neighbor) {
+    protected boolean canConnectTo(@NotNull BlockGetter level, @NotNull BlockPos pos, @NotNull Direction direction) {
+        BlockPos neighborPos = pos.relative(direction);
+        BlockState neighbor = level.getBlockState(neighborPos);
         if (neighbor.isAir()) {
             return false;
         }
-        return neighbor.getBlock() == this || neighbor.hasBlockEntity();
+        if (neighbor.getBlock() == this) {
+            return true;
+        }
+        if (!neighbor.hasBlockEntity()) {
+            return false;
+        }
+        BlockEntity be = level.getBlockEntity(neighborPos);
+        if (be instanceof ISideConfigurable configurable) {
+            // Труба подходит к грани машины, обращённой к ней.
+            Direction machineFace = direction.getOpposite();
+            SideMode mode = configurable.getSideConfig().get(getTransferKind(), machineFace);
+            return mode.canReceive() || mode.canExtract();
+        }
+        return true;
     }
+
+    /** Вид переноса, который переносит эта труба. У энерготрубы — ENERGY. */
+    protected abstract TransferKind getTransferKind();
 
     private BlockState withConnections(BlockState state, BlockGetter level, BlockPos pos) {
         BlockState result = state;
         for (int i = 0; i < DIRS.length; i++) {
             Direction dir = DIRS[i];
             BooleanProperty property = propertyFor(dir);
-            boolean connect = canConnectTo(level.getBlockState(pos.relative(dir)));
+            boolean connect = canConnectTo(level, pos, dir);
             if (result.getValue(property) != connect) {
                 result = result.setValue(property, connect);
             }

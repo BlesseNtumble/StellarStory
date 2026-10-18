@@ -11,6 +11,11 @@ public record EnergyConfig(int capacity, int maxReceive, int maxExtract) {
         return new EnergyConfig(Math.max(0, capacity), Math.max(0, maxReceive), Math.max(0, maxExtract));
     }
 
+    /** Двусторонний: и приём, и отдача (для аккумуляторов с предметными слотами). */
+    public static EnergyConfig bidirectional(int capacity, int maxTransfer) {
+        return of(capacity, maxTransfer, maxTransfer);
+    }
+
     /** Только приём: машины-потребители. */
     public static EnergyConfig receiver(int capacity, int maxReceive) {
         return of(capacity, maxReceive, 0);
