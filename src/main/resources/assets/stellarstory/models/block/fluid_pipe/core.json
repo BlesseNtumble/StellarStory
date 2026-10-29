@@ -1,0 +1,65 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "translucent",
+  "textures": {
+    "particle": "minecraft:block/glass",
+    "glass": "minecraft:block/glass",
+    "body": "minecraft:block/polished_andesite"
+  },
+  "elements": [
+    {
+      "from": [4, 11, 4],
+      "to": [12, 12, 12],
+      "faces": {
+        "up": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "north": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "west": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "east": { "uv": [0, 0, 16, 16], "texture": "#glass" }
+      }
+    },
+    {
+      "from": [4, 4, 4],
+      "to": [12, 5, 12],
+      "faces": {
+        "down": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "north": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "west": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "east": { "uv": [0, 0, 16, 16], "texture": "#glass" }
+      }
+    },
+    {
+      "from": [4, 5, 4],
+      "to": [12, 11, 5],
+      "faces": {
+        "north": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "west": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "east": { "uv": [0, 0, 16, 16], "texture": "#glass" }
+      }
+    },
+    {
+      "from": [4, 5, 11],
+      "to": [12, 11, 12],
+      "faces": {
+        "south": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "west": { "uv": [0, 0, 16, 16], "texture": "#glass" },
+        "east": { "uv": [0, 0, 16, 16], "texture": "#glass" }
+      }
+    },
+    {
+      "from": [4, 5, 5],
+      "to": [5, 11, 11],
+      "faces": {
+        "west": { "uv": [0, 0, 16, 16], "texture": "#glass" }
+      }
+    },
+    {
+      "from": [11, 5, 5],
+      "to": [12, 11, 11],
+      "faces": {
+        "east": { "uv": [0, 0, 16, 16], "texture": "#glass" }
+      }
+    }
+  ]
+}

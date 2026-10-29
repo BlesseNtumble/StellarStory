@@ -8,7 +8,11 @@ import stellarstory.StellarStory;
 import stellarstory.common.blocks.blockentity.CoalGeneratorBlockEntity;
 import stellarstory.common.blocks.blockentity.ElectricFurnaceBlockEntity;
 import stellarstory.common.blocks.blockentity.EnergyBatteryBlockEntity;
+import stellarstory.common.blocks.blockentity.FluidInfuserBlockEntity;
+import stellarstory.common.blocks.blockentity.FluidStorageBlockEntity;
 import stellarstory.common.blocks.blockentity.GrinderBlockEntity;
+import stellarstory.common.blocks.pipe.EnergyPipeBlockEntity;
+import stellarstory.common.blocks.pipe.FluidPipeBlockEntity;
 
 public class StellarBlockEntities {
 
@@ -33,5 +37,25 @@ public class StellarBlockEntities {
     public static final RegistryObject<BlockEntityType<GrinderBlockEntity>> GRINDER =
             REGISTRY.register("grinder", () -> BlockEntityType.Builder
                     .of(GrinderBlockEntity::new, StellarBlocks.GRINDER.get())
+                    .build(null));
+
+    public static final RegistryObject<BlockEntityType<FluidStorageBlockEntity>> FLUID_STORAGE =
+            REGISTRY.register("fluid_storage", () -> BlockEntityType.Builder
+                    .of(FluidStorageBlockEntity::new, StellarBlocks.FLUID_STORAGE.get())
+                    .build(null));
+
+    public static final RegistryObject<BlockEntityType<FluidInfuserBlockEntity>> FLUID_INFUSER =
+            REGISTRY.register("fluid_infuser", () -> BlockEntityType.Builder
+                    .of(FluidInfuserBlockEntity::new, StellarBlocks.FLUID_INFUSER.get())
+                    .build(null));
+
+    public static final RegistryObject<BlockEntityType<FluidPipeBlockEntity>> FLUID_PIPE =
+            REGISTRY.register("fluid_pipe", () -> BlockEntityType.Builder
+                    .of(FluidPipeBlockEntity::new, StellarBlocks.FLUID_PIPE.get())
+                    .build(null));
+
+    public static final RegistryObject<BlockEntityType<EnergyPipeBlockEntity>> ENERGY_PIPE =
+            REGISTRY.register("energy_pipe", () -> BlockEntityType.Builder
+                    .of(EnergyPipeBlockEntity::new, StellarBlocks.ENERGY_PIPE.get())
                     .build(null));
 }

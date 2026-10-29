@@ -6,7 +6,9 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
+import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -16,6 +18,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import stellarstory.api.transfer.ISideConfigurable;
 import stellarstory.api.transfer.SideMode;
 import stellarstory.api.transfer.TransferKind;
@@ -35,7 +38,7 @@ import java.util.Map;
  * сеть сама ходит по эндпоинтам-машинам. Следствие — чужой мод не может
  * «затолкнуть» энергию в нашу трубу; прием/отдача между нашими блоками работают.
  */
-public abstract class AbstractPipeBlock extends Block {
+public abstract class AbstractPipeBlock extends BaseEntityBlock {
 
     private static final Direction[] DIRS = Direction.values();
 
@@ -59,6 +62,28 @@ public abstract class AbstractPipeBlock extends Block {
         // noOcclusion: рукава тонкие, сосед должен рендерить свою грань против трубы.
         super(properties.noOcclusion());
         this.shapes = getShapeForEachState(this::shapeFor);
+    }
+
+    /**
+     * Базовый трубочный блок: по умолчанию не имеет BlockEntity;
+     * визуализация жидкости — исключение.
+     *
+     * Подклассы-конкретные трубы (EnergyPipe, FluidPipe) переопределяют
+     * и возвращают свой BlockEntity.
+     */
+    @Override
+    public @Nullable BlockEntity newBlockEntity(@NotNull BlockPos pos, @NotNull BlockState state) {
+        return null;
+    }
+
+    /**
+     * BaseEntityBlock по умолчанию возвращает ENTITYBLOCK_ANIMATED, при котором vanilla
+     * не рисует модель блока и ждёт BlockEntityRenderer. Труба обязана рендериться
+     * моделью из блокстейта, а BER (жидкость внутри) накладывается сверху.
+     */
+    @Override
+    public @NotNull RenderShape getRenderShape(BlockState state) {
+        return RenderShape.MODEL;
     }
 
     @Override
@@ -185,6 +210,9 @@ public abstract class AbstractPipeBlock extends Block {
         if (neighbor.getBlock() == this) {
             return true;
         }
+        if (neighbor.getBlock() instanceof AbstractPipeBlock) {
+            return false;
+        }
         if (!neighbor.hasBlockEntity()) {
             return false;
         }
@@ -200,6 +228,11 @@ public abstract class AbstractPipeBlock extends Block {
 
     /** Вид переноса, который переносит эта труба. У энерготрубы — ENERGY. */
     protected abstract TransferKind getTransferKind();
+
+    /** Публичный доступ к виду переноса для менеджера сетей. */
+    public TransferKind transferKind() {
+        return getTransferKind();
+    }
 
     private BlockState withConnections(BlockState state, BlockGetter level, BlockPos pos) {
         BlockState result = state;

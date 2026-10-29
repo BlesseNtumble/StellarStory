@@ -291,7 +291,7 @@ public final class PipeNetworkManager {
                 continue;
             }
             Block block = level.getBlockState(seed).getBlock();
-            if (!(block instanceof AbstractPipeBlock)) {
+            if (!(block instanceof AbstractPipeBlock pipeBlock)) {
                 continue;
             }
             if (budget <= 0) {
@@ -299,7 +299,10 @@ public final class PipeNetworkManager {
                 dirty.add(seed);
                 continue;
             }
-            EnergyNetwork network = new EnergyNetwork(block);
+            PipeNetwork network = switch (pipeBlock.transferKind()) {
+                case FLUID -> new FluidNetwork(block);
+                default -> new EnergyNetwork(block);
+            };
             int used = flood(seed, network, budget);
             if (used < 0) {
                 // Недобрали бюджет — сеть не собрана, попробуем в следующем тике.
@@ -395,5 +398,11 @@ public final class PipeNetworkManager {
 
     public int dirtyCount() {
         return dirty.size();
+    }
+
+    /** Получить сеть, которой принадлежит данный сегмент. */
+    @Nullable
+    public PipeNetwork getNetworkAt(BlockPos pos) {
+        return networkByPos.get(pos);
     }
 }

@@ -24,6 +24,7 @@ import net.minecraftforge.fluids.capability.templates.FluidTank;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
+import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import stellarstory.api.energy.EnergyConfig;
@@ -66,6 +67,13 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
 
     protected int energy = 0;
 
+    /** Период синхронизации жидкости на клиент, тиков. */
+    private static final int FLUID_SYNC_INTERVAL = 10;
+    private int fluidSyncTimer = 0;
+    private boolean fluidForceSync = true;
+    private String lastSyncedFluidType = "";
+    private int lastSyncedFluidAmount = -1;
+
     @SuppressWarnings("unchecked")
     private final LazyOptional<IEnergyStorage>[] energyCaps = new LazyOptional[7];
     @SuppressWarnings("unchecked")
@@ -103,8 +111,63 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
             @Override
             protected void onContentsChanged() {
                 setChanged();
+                markFluidDirty();
             }
         };
+    }
+
+    /** Пометить танк как грязный (требует синхронизации с клиентом). */
+    protected void markFluidDirty() {
+        fluidForceSync = true;
+    }
+
+    /**
+     * Синхронизация жидкостных баков с клиентом:
+     * при изменении типа жидкости — немедленно, при изменении количества —
+     * не чаще одного раза за FLUID_SYNC_INTERVAL тиков, либо если изменение
+     * превышает 1/64 от суммарной вместимости.
+     */
+    protected void syncFluidIfNeeded() {
+        if (level == null || level.isClientSide || tanks.isEmpty()) {
+            return;
+        }
+
+        fluidSyncTimer++;
+        String currentType = fluidTypeSignature();
+        int currentAmount = fluidAmountSignature();
+
+        boolean typeChanged = !currentType.equals(lastSyncedFluidType);
+        int totalCapacity = tanks.stream().mapToInt(FluidTank::getCapacity).sum();
+        int amountThreshold = Math.max(1, totalCapacity / 64);
+        boolean amountChanged = Math.abs(currentAmount - lastSyncedFluidAmount) >= amountThreshold;
+        boolean force = fluidForceSync || typeChanged || amountChanged;
+
+        if (force && (currentAmount > 0 || typeChanged)) {
+            fluidForceSync = false;
+            lastSyncedFluidType = currentType;
+            lastSyncedFluidAmount = currentAmount;
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+            PipeNetworkManager.wakeNear(level, worldPosition);
+        }
+    }
+
+    private String fluidTypeSignature() {
+        StringBuilder sb = new StringBuilder();
+        for (FluidTank tank : tanks) {
+            FluidStack fluid = tank.getFluid();
+            if (!fluid.isEmpty()) {
+                sb.append(ForgeRegistries.FLUIDS.getKey(fluid.getFluid()));
+            }
+        }
+        return sb.toString();
+    }
+
+    private int fluidAmountSignature() {
+        int total = 0;
+        for (FluidTank tank : tanks) {
+            total += tank.getFluidAmount();
+        }
+        return total;
     }
 
     // ═══════════════════════════════════════════════════════════════

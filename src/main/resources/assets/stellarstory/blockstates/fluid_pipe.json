@@ -1,0 +1,11 @@
+{
+  "multipart": [
+    { "apply": { "model": "stellarstory:block/fluid_pipe/core" } },
+    { "when": { "down": "true" }, "apply": { "model": "stellarstory:block/fluid_pipe/arm_down" } },
+    { "when": { "up": "true" }, "apply": { "model": "stellarstory:block/fluid_pipe/arm_up" } },
+    { "when": { "north": "true" }, "apply": { "model": "stellarstory:block/fluid_pipe/arm_north" } },
+    { "when": { "south": "true" }, "apply": { "model": "stellarstory:block/fluid_pipe/arm_south" } },
+    { "when": { "west": "true" }, "apply": { "model": "stellarstory:block/fluid_pipe/arm_west" } },
+    { "when": { "east": "true" }, "apply": { "model": "stellarstory:block/fluid_pipe/arm_east" } }
+  ]
+}

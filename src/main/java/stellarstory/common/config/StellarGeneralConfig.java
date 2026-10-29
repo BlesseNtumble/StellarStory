@@ -9,6 +9,7 @@ public class StellarGeneralConfig {
     // ── Трубы / энергосеть ────────────────────────────────────────
     public static final ForgeConfigSpec.IntValue PIPE_TICK_INTERVAL;
     public static final ForgeConfigSpec.IntValue PIPE_MAX_FE_PER_TICK;
+    public static final ForgeConfigSpec.IntValue PIPE_MAX_MB_PER_TICK;
     public static final ForgeConfigSpec.IntValue PIPE_REBUILD_BUDGET;
     public static final ForgeConfigSpec.IntValue PIPE_IDLE_AFTER;
     public static final ForgeConfigSpec.IntValue PIPE_ENDPOINT_RECHECK;
@@ -19,8 +20,11 @@ public class StellarGeneralConfig {
                 .comment("Каждый N-ный тик выполнять перенос энергии по сети")
                 .defineInRange("pipeTickInterval", 1, 1, 20);
         PIPE_MAX_FE_PER_TICK = BUILDER
-                .comment("Пропускная способность одной сети, FE за тик переноса")
+                .comment("Пропускная способность одной энергосети, FE за тик переноса")
                 .defineInRange("pipeMaxFePerTick", 256, 1, 1000000);
+        PIPE_MAX_MB_PER_TICK = BUILDER
+                .comment("Пропускная способность одной жидкостной сети, mB за тик переноса")
+                .defineInRange("pipeMaxMbPerTick", 250, 1, 1000000);
         PIPE_REBUILD_BUDGET = BUILDER
                 .comment("Сколько сегментов трубы перестраивать за один тик")
                 .defineInRange("pipeRebuildBudget", 2048, 16, 65536);

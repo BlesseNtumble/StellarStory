@@ -60,6 +60,18 @@ public final class SideConfig {
                 .with(TransferKind.ITEM, Direction.DOWN, SideMode.DISABLED);
     }
 
+    /** Жидкостное хранилище: жидкость входит и выходит со всех сторон. */
+    public static SideConfig fluidStorageDefaults() {
+        return new SideConfig(SideMode.DISABLED, SideMode.DISABLED, SideMode.BOTH);
+    }
+
+    /** Машина с баком: жидкость входит со всех сторон, энергия — как у обычной машины. */
+    public static SideConfig fluidMachineDefaults() {
+        return new SideConfig(SideMode.INPUT, SideMode.INPUT, SideMode.INPUT)
+                .with(TransferKind.ENERGY, Direction.DOWN, SideMode.DISABLED)
+                .with(TransferKind.ITEM, Direction.DOWN, SideMode.OUTPUT);
+    }
+
     public SideMode get(TransferKind kind, Direction side) {
         return modes.get(kind)[side.ordinal()];
     }

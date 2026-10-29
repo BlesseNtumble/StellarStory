@@ -7,9 +7,11 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.energy.IEnergyStorage;
+import org.jetbrains.annotations.Nullable;
 import stellarstory.api.transfer.ISideConfigurable;
 import stellarstory.api.transfer.SideMode;
 import stellarstory.api.transfer.TransferKind;
+import stellarstory.common.blocks.pipe.AbstractPipeBlock;
 import stellarstory.common.config.StellarGeneralConfig;
 
 import java.util.ArrayList;
@@ -68,8 +70,9 @@ public final class EnergyNetwork extends PipeNetwork {
             for (Direction dir : DIRS) {
                 cursor.setWithOffset(segment, dir);
                 BlockState neighbor = level.getBlockState(cursor);
-                // Сосед-труба этой же сети — ребро, а не эндпоинт.
-                if (neighbor.getBlock() == pipeBlock || !neighbor.hasBlockEntity()) {
+                // Соседняя труба — ребро графа, а не эндпоинт. Проверяем по базовому
+                // классу: с появлением BE у трубы иначе приняли бы бы её за машину.
+                if (neighbor.getBlock() instanceof AbstractPipeBlock || !neighbor.hasBlockEntity()) {
                     continue;
                 }
                 Direction machineFace = dir.getOpposite();
@@ -210,5 +213,118 @@ public final class EnergyNetwork extends PipeNetwork {
         int[] grown = new int[Math.max(size, array.length * 2 + 4)];
         System.arraycopy(array, 0, grown, 0, array.length);
         return grown;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Proxy API для BlockEntity трубы
+    //
+    // Proxy вызывается извне (чужая труба/машина обращается к нашей трубе
+    // через capability), в том числе во время собственного тика сети. Поэтому
+    // здесь используются ОТДЕЛЬНЫЕ списки: общий sources/consumers трогать
+    // нельзя — иначе реентерабельный вызов испортит фазы doTick.
+    // ═══════════════════════════════════════════════════════════════
+
+    private final List<IEnergyStorage> proxyTargets = new ArrayList<>();
+
+    /**
+     * Приём энергии через трубу: отдаём её потребителям сети.
+     * Энергия в самой трубе не задерживается — её некуда класть.
+     */
+    public int proxyReceive(ServerLevel level, @Nullable Direction face,
+                            int maxReceive, boolean simulate) {
+        if (segments.isEmpty() || maxReceive <= 0) {
+            return 0;
+        }
+        int limit = StellarGeneralConfig.PIPE_MAX_FE_PER_TICK.get();
+        int want = Math.min(maxReceive, limit);
+
+        proxyTargets.clear();
+        int demand = 0;
+        for (int i = 0; i < endpoints.size(); i++) {
+            // Труба не отдаёт энергию обратно в ту же грань, из которой получила.
+            if (endpoints.get(i).pipeFace() == face) {
+                continue;
+            }
+            IEnergyStorage storage = endpoints.get(i).storage(level, 1);
+            if (storage == null) {
+                continue;
+            }
+            int room = storage.receiveEnergy(want, true);
+            if (room > 0) {
+                proxyTargets.add(storage);
+                demand = Math.min(want, demand + room);
+            }
+        }
+        if (demand <= 0) {
+            return 0;
+        }
+
+        // simulate: считаем по смоделированным объёмам, не изменяя цели
+        if (simulate) {
+            int accepted = 0;
+            for (int i = 0; i < proxyTargets.size() && accepted < want; i++) {
+                accepted += proxyTargets.get(i).receiveEnergy(want - accepted, true);
+            }
+            return accepted;
+        }
+
+        int delivered = 0;
+        for (int i = 0; i < proxyTargets.size() && delivered < want; i++) {
+            delivered += proxyTargets.get(i).receiveEnergy(want - delivered, false);
+        }
+        if (delivered > 0) {
+            wake();
+        }
+        return delivered;
+    }
+
+    /**
+     * Забор энергии через трубу: берём её от источников сети.
+     */
+    public int proxyExtract(ServerLevel level, @javax.annotation.Nullable Direction face,
+                            int maxExtract, boolean simulate) {
+        if (segments.isEmpty() || maxExtract <= 0) {
+            return 0;
+        }
+        int limit = StellarGeneralConfig.PIPE_MAX_FE_PER_TICK.get();
+        int want = Math.min(maxExtract, limit);
+
+        proxyTargets.clear();
+        int supply = 0;
+        for (int i = 0; i < endpoints.size(); i++) {
+            // Не выкачиваем из той же машины, что запросила энергию.
+            if (endpoints.get(i).pipeFace() == face) {
+                continue;
+            }
+            IEnergyStorage storage = endpoints.get(i).storage(level, 1);
+            if (storage == null) {
+                continue;
+            }
+            int give = storage.extractEnergy(want, true);
+            if (give > 0) {
+                proxyTargets.add(storage);
+                supply = Math.min(want, supply + give);
+            }
+        }
+        if (supply <= 0) {
+            return 0;
+        }
+
+        if (simulate) {
+            int extracted = 0;
+            for (int i = 0; i < proxyTargets.size() && extracted < want; i++) {
+                extracted += proxyTargets.get(i).extractEnergy(want - extracted, true);
+            }
+            return extracted;
+        }
+
+        int taken = 0;
+        for (int i = 0; i < proxyTargets.size() && taken < want; i++) {
+            taken += proxyTargets.get(i).extractEnergy(want - taken, false);
+        }
+        if (taken > 0) {
+            wake();
+        }
+        return taken;
     }
 }

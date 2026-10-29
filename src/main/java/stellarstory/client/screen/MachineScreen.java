@@ -4,6 +4,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 import stellarstory.client.gui.SideConfigPanel;
 import stellarstory.common.menu.MachineMenu;
@@ -75,10 +77,13 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         graphics.fill(x, y, x + this.imageWidth, y + this.imageHeight, COLOR_BACKGROUND);
         drawFrame(graphics, x, y);
 
-        drawEnergyBar(graphics, x, y);
+        if (menu.getMaxEnergy() > 0) {
+            drawEnergyBar(graphics, x, y);
+        }
         if (menu.hasProgress()) {
             drawProgress(graphics, x, y);
         }
+        drawTank(graphics, x, y);
     }
 
     @Override
@@ -134,5 +139,38 @@ public class MachineScreen extends AbstractContainerScreen<MachineMenu> {
         }
         graphics.drawString(this.font, Component.literal(menu.getProgressPercent() + "%"),
                 barX, y + BAR_Y + BAR_HEIGHT + 2, COLOR_LABEL, false);
+    }
+
+    private void drawTank(GuiGraphics graphics, int x, int y) {
+        if (menu.getTankCount() <= 0) {
+            return;
+        }
+        int tankX = x + this.imageWidth - 26;
+        int tankY = y + 14;
+        int width = 18;
+        int height = 36;
+
+        graphics.fill(tankX, tankY, tankX + width, tankY + height, COLOR_TRACK);
+        graphics.fill(tankX, tankY, tankX + 1, tankY + height, COLOR_FRAME);
+        graphics.fill(tankX + width - 1, tankY, tankX + width, tankY + height, COLOR_FRAME);
+
+        int amount = menu.getTankAmount(0);
+        int capacity = menu.getTankCapacity(0);
+        if (capacity > 0 && amount > 0) {
+            int filled = Math.round(height * ((float) amount / capacity));
+            FluidStack fluid = menu.getTankFluidStack(0);
+            if (!fluid.isEmpty()) {
+                graphics.fill(tankX + 1, tankY + height - filled, tankX + width - 1, tankY + height - 1, fluidColor(fluid));
+            }
+        }
+    }
+
+    private int fluidColor(FluidStack fluid) {
+        int color = IClientFluidTypeExtensions.of(fluid.getFluid()).getTintColor(fluid);
+        int alpha = (color >>> 24) & 255;
+        if (alpha == 0) {
+            alpha = 184;
+        }
+        return (alpha << 24) | (color & 0x00FFFFFF);
     }
 }

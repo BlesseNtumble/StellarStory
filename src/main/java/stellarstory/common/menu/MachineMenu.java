@@ -3,12 +3,15 @@ package stellarstory.common.menu;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.SlotItemHandler;
 import org.jetbrains.annotations.NotNull;
@@ -39,8 +42,9 @@ public class MachineMenu extends AbstractContainerMenu {
     public static final int DATA_ENERGY_HI = 1;
     public static final int DATA_PROGRESS = 2;
     public static final int DATA_WORKING = 3;
-    /** Далее по два поля на каждый бак: amount lo, amount hi. */
+    /** Далее по два поля на бак: amount lo/hi и fluid id lo/hi. */
     public static final int DATA_TANK_BASE = 4;
+    public static final int DATA_TANK_STRIDE = 4;
 
     /** Ширина/высота окна и координаты сетки игрока — используют экраны. */
     public static final int WIDTH = 176;
@@ -184,7 +188,7 @@ public class MachineMenu extends AbstractContainerMenu {
     }
 
     public int getTankAmount(int index) {
-        return readInt(DATA_TANK_BASE + index * 2);
+        return readInt(DATA_TANK_BASE + index * DATA_TANK_STRIDE);
     }
 
     /** Вместимость бака — конструкторская константа, читается прямо с BlockEntity. */
@@ -192,9 +196,32 @@ public class MachineMenu extends AbstractContainerMenu {
         return blockEntity.getTankCapacity(index);
     }
 
-    /** Синхронизированный тип жидкости из NBT (строковый идентификатор). */
+    /** Идентификатор жидкости в баке из ContainerData. */
     public String getTankFluidId(int index) {
-        return data.getFluidId(index);
+        int fluidId = readInt(DATA_TANK_BASE + index * DATA_TANK_STRIDE + 2);
+        if (fluidId <= 0) {
+            return "";
+        }
+        Fluid fluid = BuiltInRegistries.FLUID.byId(fluidId);
+        return fluid == null ? "" : BuiltInRegistries.FLUID.getKey(fluid).toString();
+    }
+
+    /** FluidStack для отрисовки: сначала из синхронизированного BlockEntity, затем из ID. */
+    public FluidStack getTankFluidStack(int index) {
+        FluidStack stored = blockEntity.getFluidInTank(index);
+        if (!stored.isEmpty()) {
+            return stored;
+        }
+        int amount = getTankAmount(index);
+        if (amount <= 0) {
+            return FluidStack.EMPTY;
+        }
+        String id = getTankFluidId(index);
+        if (id.isEmpty()) {
+            return FluidStack.EMPTY;
+        }
+        Fluid fluid = BuiltInRegistries.FLUID.get(ResourceLocation.tryParse(id));
+        return fluid == null ? FluidStack.EMPTY : new FluidStack(fluid, amount);
     }
 
     public AbstractEnergyBlockEntity getBlockEntity() {
@@ -234,7 +261,7 @@ public class MachineMenu extends AbstractContainerMenu {
 
         private MachineData(AbstractEnergyBlockEntity be) {
             this.be = be;
-            this.cache = new int[DATA_TANK_BASE + be.getTankCount() * 2];
+            this.cache = new int[DATA_TANK_BASE + be.getTankCount() * DATA_TANK_STRIDE];
             this.clientSide = be.getLevel() != null && be.getLevel().isClientSide();
         }
 
@@ -249,11 +276,20 @@ public class MachineMenu extends AbstractContainerMenu {
                 case DATA_PROGRESS -> (int) (be.getGuiProgress() * PROGRESS_STEPS);
                 case DATA_WORKING -> be.isWorking() ? 1 : 0;
                 default -> {
-                    // Бак: чётный слот = младшая половина amount, нечётный = старшая
-                    int tankIndex = (index - DATA_TANK_BASE) / 2;
+                    int relative = index - DATA_TANK_BASE;
+                    int tankIndex = relative / DATA_TANK_STRIDE;
+                    int field = relative % DATA_TANK_STRIDE;
                     if (tankIndex >= 0 && tankIndex < be.getTankCount()) {
-                        int amount = be.getFluidAmount(tankIndex);
-                        yield ((index - DATA_TANK_BASE) & 1) == 1 ? hi16(amount) : lo16(amount);
+                        FluidStack fluid = be.getFluidInTank(tankIndex);
+                        int amount = fluid.getAmount();
+                        int fluidId = fluid.isEmpty() ? 0 : BuiltInRegistries.FLUID.getId(fluid.getFluid());
+                        yield switch (field) {
+                            case 0 -> lo16(amount);
+                            case 1 -> hi16(amount);
+                            case 2 -> lo16(fluidId);
+                            case 3 -> hi16(fluidId);
+                            default -> 0;
+                        };
                     }
                     yield 0;
                 }
@@ -267,7 +303,7 @@ public class MachineMenu extends AbstractContainerMenu {
 
         @Override
         public int getCount() {
-            return DATA_TANK_BASE + getTanks() * 2;
+            return DATA_TANK_BASE + getTanks() * DATA_TANK_STRIDE;
         }
 
         boolean hasProgress() {
@@ -277,15 +313,6 @@ public class MachineMenu extends AbstractContainerMenu {
         /** Число баков — нужно для getCount(). */
         int getTanks() {
             return be.getTankCount();
-        }
-
-        /** Идентификатор жидкости в баке (для GUI). */
-        String getFluidId(int index) {
-            if (index >= 0 && index < be.getTankCount()) {
-                var fluid = be.getFluidInTank(index);
-                return fluid.isEmpty() ? "" : BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
-            }
-            return "";
         }
     }
 }

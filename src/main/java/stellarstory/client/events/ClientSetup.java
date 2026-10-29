@@ -1,12 +1,15 @@
 package stellarstory.client.events;
 
 import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import stellarstory.StellarStory;
+import stellarstory.client.renderer.FluidPipeRenderer;
 import stellarstory.client.screen.MachineScreen;
+import stellarstory.common.init.StellarBlockEntities;
 import stellarstory.common.init.StellarMenuTypes;
 
 /**
@@ -21,7 +24,9 @@ public class ClientSetup {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        event.enqueueWork(() ->
-                MenuScreens.register(StellarMenuTypes.MACHINE_MENU.get(), MachineScreen::new));
+        event.enqueueWork(() -> {
+            MenuScreens.register(StellarMenuTypes.MACHINE_MENU.get(), MachineScreen::new);
+            BlockEntityRenderers.register(StellarBlockEntities.FLUID_PIPE.get(), FluidPipeRenderer::new);
+        });
     }
 }

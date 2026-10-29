@@ -25,9 +25,15 @@
   "block.stellarstory.electric_furnace": "Электропечь",
   "block.stellarstory.grinder": "Дробитель",
   "block.stellarstory.energy_pipe": "Энерготруба",
+  "block.stellarstory.fluid_storage": "Жидкостное хранилище",
+  "block.stellarstory.fluid_infuser": "Жидкостный инфузер",
+  "block.stellarstory.fluid_pipe": "Жидкостная труба",
   "item.stellarstory.energy_wrench": "Гаечный ключ",
   "item.stellarstory.energy_cell": "Энергоячейка",
+  "item.stellarstory.fluid_canister": "Жидкостная канистра",
   "tooltip.stellarstory.energy_stored": "Энергия: %s / %s FE",
+  "tooltip.stellarstory.fluid_empty": "Пусто: 0 / %s mB",
+  "tooltip.stellarstory.fluid_stored": "Жидкость: %s (%s / %s mB)",
   "gui.stellarstory.side.down": "Низ",
   "gui.stellarstory.side.up": "Верх",
   "gui.stellarstory.side.north": "Север",
@@ -40,5 +46,11 @@
   "gui.stellarstory.side_mode.both": "Вход/Выход",
   "gui.stellarstory.side_mode.set": "%s: %s",
   "gui.stellarstory.machine.energy": "Энергия",
-  "gui.stellarstory.machine.progress": "Прогресс"
+  "gui.stellarstory.machine.progress": "Прогресс",
+  "gui.stellarstory.machine.fluid": "Жидкость",
+  "gui.stellarstory.side_config.hint": "Выберите грань",
+  "gui.stellarstory.side_config.mode_tooltip": "%s: %s — %s",
+  "gui.stellarstory.transfer_kind.energy": "Энергия",
+  "gui.stellarstory.transfer_kind.item": "Предмет",
+  "gui.stellarstory.transfer_kind.fluid": "Жидкость"
 }

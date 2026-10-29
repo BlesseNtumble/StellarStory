@@ -55,6 +55,7 @@ public abstract class AbstractMachineBlockEntity extends AbstractEnergyBlockEnti
             running = false;
         }
         syncRunningState();
+        syncFluidIfNeeded();
     }
 
     /** Прокидываем свойство RUNNING на клиент (подсветка работающего блока). */
