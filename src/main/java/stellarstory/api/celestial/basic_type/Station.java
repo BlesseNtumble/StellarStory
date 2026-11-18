@@ -46,7 +46,10 @@ public class Station extends CelestialBody implements IChildBody {
                 // BodyDataHandler содержит gravity и temperature
                 var physical = data.physicalData();
                 var atm = data.atmosphereData();
-                if (physical != null) builder.gravity(physical.gravity());
+                if (physical != null) {
+                    builder.gravity(physical.gravity());
+                    builder.dayLength(physical.dayLength());
+                }
                 if (atm != null) builder.temperature(atm.temperature());
 
                 Station station = builder.build();

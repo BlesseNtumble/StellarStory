@@ -1,6 +1,5 @@
 {
   "name": "sun",
-  "icon": "stellarstory:textures/celestialbodies/white.png",
   "spectral_class": "G",
   "planets": [
     "stellarstory:overworld",

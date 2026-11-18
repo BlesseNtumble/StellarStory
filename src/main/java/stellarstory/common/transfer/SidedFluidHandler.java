@@ -79,6 +79,15 @@ public class SidedFluidHandler implements IFluidHandler {
         return accepted;
     }
 
+    /**
+     * Дожим по конкретному типу жидкости.
+     *
+     * ВАЖНО: сравнение идёт по {@link FluidStack#isFluidEqual} (тип + NBT), но не
+     * по {@code isFluidStackIdentical} — последняя проверяет ещё и amount. Сеть
+     * всегда запрашивает «port amount» (пропускную способность сети), который почти
+     * никогда не равен тому, что реально налито в баке, поэтому identical-сравнение
+     * отбивало любой забор: источникиnetwork просто не находились.
+     */
     @Override
     public @NotNull FluidStack drain(@NotNull FluidStack resource, FluidAction action) {
         if (resource.isEmpty() || !sideConfig.canExtract(TransferKind.FLUID, side)) {
@@ -86,8 +95,8 @@ public class SidedFluidHandler implements IFluidHandler {
         }
         for (FluidTank tank : tanks) {
             FluidStack stored = tank.getFluid();
-            if (!stored.isEmpty() && stored.isFluidStackIdentical(resource)) {
-                return tank.drain(resource, action);
+            if (!stored.isEmpty() && stored.isFluidEqual(resource)) {
+                return tank.drain(resource.getAmount(), action);
             }
         }
         return FluidStack.EMPTY;

@@ -10,19 +10,24 @@ import stellarstory.api.celestial.basic_type.Comet;
 import stellarstory.api.celestial.data.OrbitData;
 import stellarstory.api.celestial.data.OrbitVisual;
 
+import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 public class Star extends CelestialBody {
 
     /** Спектральные классы звёзд с их характерными цветами. */
     public enum SpectralClass {
-        O("O", 1.0F, 0.6F, 0.8F, "Голубой"),
-        B("B", 0.8F, 0.85F, 1.0F, "Голубовато-белый"),
-        A("A", 0.95F, 0.95F, 1.0F, "Белый"),
-        F("F", 1.0F, 0.98F, 0.85F, "Жёлто-белый"),
-        G("G", 1.0F, 0.92F, 0.6F, "Жёлтый"),
-        K("K", 1.0F, 0.75F, 0.4F, "Оранжевый"),
-        M("M", 1.0F, 0.4F, 0.25F, "Красный");
+        O("O", 0.608F, 0.690F, 1.000F, "Голубой"),
+        B("B", 0.667F, 0.749F, 1.000F, "Голубовато-белый"),
+        A("A", 0.792F, 0.843F, 1.000F, "Белый"),
+        F("F", 0.973F, 0.969F, 1.000F, "Жёлто-белый"),
+        G("G", 1.000F, 0.957F, 0.761F, "Жёлтый"),
+        K("K", 1.000F, 0.824F, 0.631F, "Оранжевый"),
+        M("M", 1.000F, 0.800F, 0.435F, "Красный"),
+        L("L", 1.000F, 0.600F, 0.200F, "Красно-коричневый"),
+        T("T", 0.600F, 0.400F, 0.400F, "Коричневый"),
+        Y("Y", 0.400F, 0.298F, 0.200F, "Темно-коричневый");
 
         public final String symbol;
         public final float r, g, b;
@@ -44,16 +49,20 @@ public class Star extends CelestialBody {
             // По умолчанию — жёлтая звезда (как Солнце)
             return G;
         }
+
+        public Color getColor() {
+            return new Color(r, g, b);
+        }
     }
 
     public static final Codec<Star> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.STRING.fieldOf("name").forGetter(Star::getName),
-            ResourceLocation.CODEC.fieldOf("icon").forGetter(Star::getIcon),
+            ResourceLocation.CODEC.fieldOf("icon").orElse(ResourceLocation.fromNamespaceAndPath("stellarstory", "textures/celestialbodies/white.png")).forGetter(Star::getIcon),
             ResourceLocation.CODEC.listOf().fieldOf("planets").forGetter(Star::getPlanetReferences),
             ResourceLocation.CODEC.listOf().fieldOf("asteroids").orElse(List.of()).forGetter(Star::getAsteroidReferences),
             ResourceLocation.CODEC.listOf().fieldOf("comets").orElse(List.of()).forGetter(Star::getCometReferences),
             ResourceLocation.CODEC.fieldOf("barycenter").orElse(ResourceLocation.tryParse("null")).forGetter(Star::getBarycenterRefRaw),
-            Codec.STRING.fieldOf("spectral_class").orElse("G").forGetter(s -> s.spectralClass != null ? s.spectralClass.symbol : "G"),
+            Codec.STRING.fieldOf("spectral_class").orElse("G").forGetter(s -> s.spectralClass != null ? s.spectralClass.name() : "G"),
             OrbitData.CODEC.fieldOf("orbit").orElse(OrbitData.DEFAULT).forGetter(Star::getOrbit),
             OrbitVisual.CODEC.fieldOf("orbit_visual").orElse(OrbitVisual.DEFAULT).forGetter(Star::getOrbitVisual)
     ).apply(instance, (name, icon, planets, asteroids, comets, barycenterRef, spectralClassSymbol, orbit, orbitVisual) -> {

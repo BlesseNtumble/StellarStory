@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.mojang.math.Axis;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.FogRenderer;
 import net.minecraft.client.renderer.GameRenderer;
@@ -12,11 +13,175 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import javax.annotation.Nullable;
 
 public class SkyHelper {
+
+    // =====================================================================
+    //  Параметры положения и ориентации небесного тела
+    // =====================================================================
+
+    /**
+     * Параметры положения и ориентации небесного тела на небесной сфере.
+     * Поддерживает два режима: фиксированное положение (elevation/azimuth)
+     * и орбитальное движение (speed, phase, inclination).
+     *
+     * <h3>Примеры использования</h3>
+     * <pre>{@code
+     * // Фиксированная планета в зените
+     * SkyHelper.BodyParams planet = BodyParams.fixed(0.0F, 0.0F, 100.0F)
+     *         .tilt(23.5F, 0.0F).spin(spinDeg);
+     *
+     * // Луна на орбите с периодом 24000 тиков (1 день), фаза 0.5 (противоположно солнцу)
+     * SkyHelper.BodyParams moon = BodyParams.orbit(100.0F, 1.0F, 0.5F, 5.14F)
+     *         .tilt(1.54F, 0.0F).spin(spinDeg);
+     *
+     * // Медленный спутник (период 10 дней)
+     * SkyHelper.BodyParams slowSat = BodyParams.orbit(120.0F, 0.1F, 0.0F, 0.0F)
+     *         .tilt(0.0F, 0.0F).spin(0.0F);
+     * }</pre>
+     */
+    public static final class BodyParams {
+        public boolean orbit;
+        public float elevationDeg = 0.0F;
+        public float azimuthDeg = 0.0F;
+        public float distance = 100.0F;
+        public float orbitSpeed = 1.0F;       // оборотов за игровой день (1 = как солнце)
+        public float phaseOffset = 0.0F;      // доля круга
+        public float inclination = 0.0F;      // наклон плоскости орбиты в градусах
+        public float tiltX = 0.0F;            // наклон оси X (world-space)
+        public float tiltZ = 0.0F;            // наклон оси Z (world-space)
+        public float spinDeg = 0.0F;          // самоповорот вокруг локальной Y
+
+        /** Фиксированное положение в небе. */
+        public static BodyParams fixed(float elevationDeg, float azimuthDeg, float distance) {
+            BodyParams p = new BodyParams();
+            p.orbit = false;
+            p.elevationDeg = elevationDeg;
+            p.azimuthDeg = azimuthDeg;
+            p.distance = distance;
+            return p;
+        }
+
+        /** Орбитальное движение. speed = 1.0 → один оборот за игровой день. */
+        public static BodyParams orbit(float distance, float orbitSpeed, float phaseOffset, float inclination) {
+            BodyParams p = new BodyParams();
+            p.orbit = true;
+            p.distance = distance;
+            p.orbitSpeed = orbitSpeed;
+            p.phaseOffset = phaseOffset;
+            p.inclination = inclination;
+            return p;
+        }
+
+        public BodyParams tilt(float tiltX, float tiltZ) { this.tiltX = tiltX; this.tiltZ = tiltZ; return this; }
+        public BodyParams spin(float spinDeg) { this.spinDeg = spinDeg; return this; }
+    }
+
+    /**
+     * Параметры направления источника света (звезды).
+     * Для стандартного солнца (период 1 день, фаза 0, наклон 0) достаточно null —
+     * используется дефолтное направление из timeOfDay.
+     */
+    public static final class LightParams {
+        public boolean orbit;
+        public float elevationDeg = 0.0F;
+        public float azimuthDeg = 0.0F;
+        public float orbitSpeed = 1.0F;
+        public float phaseOffset = 0.0F;
+        public float inclination = 0.0F;
+
+        public static LightParams fixed(float elevationDeg, float azimuthDeg) {
+            LightParams p = new LightParams();
+            p.orbit = false;
+            p.elevationDeg = elevationDeg;
+            p.azimuthDeg = azimuthDeg;
+            return p;
+        }
+
+        public static LightParams orbit(float orbitSpeed, float phaseOffset, float inclination) {
+            LightParams p = new LightParams();
+            p.orbit = true;
+            p.orbitSpeed = orbitSpeed;
+            p.phaseOffset = phaseOffset;
+            p.inclination = inclination;
+            return p;
+        }
+    }
+
+    /**
+     * Направление на небесное тело в кадровой системе координат неба.
+     * Для orbit=false: elevation/azimuth → сферические координаты.
+     * Для orbit=true: орбитальный поворот × (0,1,0).
+     */
+    public static Vector3f bodyDirection(BodyParams body, float timeOfDay) {
+        if (!body.orbit) {
+            float el = body.elevationDeg * Mth.DEG_TO_RAD;
+            float az = body.azimuthDeg * Mth.DEG_TO_RAD;
+            return new Vector3f(Mth.cos(el) * Mth.sin(az), Mth.sin(el), Mth.cos(el) * Mth.cos(az));
+        }
+        Matrix4f m = new Matrix4f();
+        m.rotateY(-90.0F * Mth.DEG_TO_RAD);
+        if (body.inclination != 0.0F) m.rotateZ(body.inclination * Mth.DEG_TO_RAD);
+        m.rotateX((timeOfDay * body.orbitSpeed + body.phaseOffset) * 360.0F * Mth.DEG_TO_RAD);
+        Vector3f d = new Vector3f(0.0F, 1.0F, 0.0F);
+        m.transformDirection(d);
+        return d.normalize();
+    }
+
+    /** Направление на источник света (звезду). null → стандартное солнце (speed=1, phase=0, incl=0). */
+    public static Vector3f lightDirection(@Nullable LightParams light, float timeOfDay) {
+        if (light == null) {
+            return sunDirection(timeOfDay);
+        }
+        if (!light.orbit) {
+            float el = light.elevationDeg * Mth.DEG_TO_RAD;
+            float az = light.azimuthDeg * Mth.DEG_TO_RAD;
+            return new Vector3f(Mth.cos(el) * Mth.sin(az), Mth.sin(el), Mth.cos(el) * Mth.cos(az));
+        }
+        Matrix4f m = new Matrix4f();
+        m.rotateY(-90.0F * Mth.DEG_TO_RAD);
+        if (light.inclination != 0.0F) m.rotateZ(light.inclination * Mth.DEG_TO_RAD);
+        m.rotateX((timeOfDay * light.orbitSpeed + light.phaseOffset) * 360.0F * Mth.DEG_TO_RAD);
+        Vector3f d = new Vector3f(0.0F, 1.0F, 0.0F);
+        m.transformDirection(d);
+        return d.normalize();
+    }
+
+    /** Матрица ориентации куба: наклон оси + самоповорот. Используется для освещения. */
+    public static Matrix4f bodyOrientation(BodyParams body) {
+        Matrix4f m = new Matrix4f();
+        m.rotateX(body.tiltX * Mth.DEG_TO_RAD);
+        m.rotateZ(body.tiltZ * Mth.DEG_TO_RAD);
+        m.rotateY(body.spinDeg * Mth.DEG_TO_RAD);
+        return m;
+    }
+
+    /** Lambertian brightness: dot(faceNormal, lightDir). */
+    private static float faceBrightness(float nx, float ny, float nz, Vector3f light) {
+        float dot = nx * light.x + ny * light.y + nz * light.z;
+        return 0.05F + 0.75F * Math.max(0.0F, dot);
+    }
+
+    /** Per-face brightness [ +Z, -Z, +X, -X, +Y, -Y ]. */
+    private static float[] computeBrightness(Matrix4f orientation, Vector3f lightDir) {
+        Vector3f local = new Vector3f(lightDir);
+        new Matrix4f(orientation).invert().transformDirection(local);
+        local.normalize();
+        return new float[]{
+                faceBrightness( 0,  0,  1, local),
+                faceBrightness( 0,  0, -1, local),
+                faceBrightness( 1,  0,  0, local),
+                faceBrightness(-1,  0,  0, local),
+                faceBrightness( 0,  1,  0, local),
+                faceBrightness( 0, -1,  0, local),
+        };
+    }
+
+    // =====================================================================
 
     @Nullable
     private VertexBuffer skyBuffer;
@@ -67,7 +232,7 @@ public class SkyHelper {
         VertexBuffer.unbind();
     }
 
-    public void renderSky(VertexBuffer starBuffer, Matrix4f matrix, PoseStack poseStack, Minecraft minecraft, ResourceLocation sunTexture, float partialTicks, float sunBrightness, float starBrightness, float orbitInclination, Runnable setupFog) {
+    public void renderSky(VertexBuffer starBuffer, Matrix4f matrix, PoseStack poseStack, Minecraft minecraft, float partialTicks, float sunBrightness, float starBrightness, float orbitInclination, Runnable setupFog) {
         Vec3 vec3 = minecraft.level.getSkyColor(minecraft.gameRenderer.getMainCamera().getPosition(), partialTicks);
         float f = (float)vec3.x;
         float f1 = (float)vec3.y;
@@ -86,6 +251,7 @@ public class SkyHelper {
             RenderSystem.setShader(GameRenderer::getPositionColorShader);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             poseStack.pushPose();
+
             poseStack.mulPose(Axis.XP.rotationDegrees(90.0F));
             if (orbitInclination != 0.0F) {
                 poseStack.mulPose(Axis.YP.rotationDegrees(orbitInclination));
@@ -194,13 +360,14 @@ public class SkyHelper {
     public void renderCube(PoseStack poseStack,
                            float x, float y, float z,
                            float rotX, float rotY, float rotZ,
-                           float scale, float alpha, float timeOfDay,
+                           float scale, float timeOfDay,
                            float orbitPhaseOffset, float orbitInclination,
+                           float r, float g, float b, float alpha,
                            ResourceLocation... textures) {
         boolean multiTex = textures.length >= 6;
 
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
+        RenderSystem.setShaderColor(r, g, b, alpha);
 
         if (!multiTex) {
             RenderSystem.setShaderTexture(0, textures[0]);
@@ -293,25 +460,10 @@ public class SkyHelper {
     };
 
     /**
-     * Renders a textured cube with per-face Lambertian shading based on sun direction.
-     * Supports either 1 texture (applied to all faces) or 6 textures (one per face:
-     * +Z, -Z, +X, -X, +Y, -Y). Uses immediate-mode POSITION_TEX_COLOR.
-     *
-     * x, y, z	Позиция центра в системе координат неба (камера в 0,0,0; юниты условные, 100 ≈ «далеко», 1 ≈ «на голове»)	translate до scale, так что масштаб радиус не сдвигает
-     * rotX, rotY, rotZ	Наклон оси + самоповорот куба вокруг своих осей (градусы)	rotY обычно и есть суточное вращение; rotX/rotZ — наклон оси
-     * scale	Радиус куба	По сути угловой размер: asin(scale / расстояние)
-     * alpha	Непрозрачность граней	1.0F — нормально, у куба с текстурой обычно и не трогают
-     * timeOfDay	level.getTimeOfDay(partialTicks)	Управляет и орбитой, и направлением света
-     * elevationDeg	❗ Только раскраска: сдвигает терминатор	Позицию не меняет
-     * azimuthDeg	❗ Только раскраска: поворот линии света	Позицию не меняет
-     * orbitPhaseOffset	Фаза орбиты в долях суток (0.5 = противоположно солнцу)	❗ 0 орбиту не выключает, только сдвигает фазу
-     * orbitInclination	Наклон плоскости орбиты в градусах	При phaseOffset == 0 игнорируется и орбитой, и раскраской
-     * textures...	1 текстура на все грани или 6	Порядок 6 шт. = +Z, -Z, +X, -X, +Y, -Y (как CUBE_FACES)
-     *
-     * @param orbitPhaseOffset orbit offset in day-fractions (0 = no orbit; non-zero enables sun-like orbit)
-     * @param orbitInclination tilt of the orbit path in degrees relative to the horizon
-     * @param textures either 1 texture for all faces, or 6 textures (one per face)
+     * @deprecated Используйте {@link #renderLitBody(BodyParams, float, float, float, LightParams, ResourceLocation...)}
+     * для корректной синхронизации освещения и положения тела.
      */
+    @Deprecated
     public void renderLitCube(PoseStack poseStack,
                               float x, float y, float z,
                               float rotX, float rotY, float rotZ,
@@ -319,63 +471,107 @@ public class SkyHelper {
                               float timeOfDay, float elevationDeg, float azimuthDeg,
                               float orbitPhaseOffset, float orbitInclination,
                               ResourceLocation... textures) {
-        float[] b = computeFaceBrightness(timeOfDay, elevationDeg, azimuthDeg, rotX, rotY, rotZ, orbitPhaseOffset, orbitInclination);
-        boolean multiTex = textures.length >= 6;
+        float dist = (float) Math.sqrt(x*x + y*y + z*z);
+        float elev = (float) Math.toDegrees(Math.asin(y / dist));
+        float azim = (float) Math.toDegrees(Math.atan2(x, z));
 
-        RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-
-        if (!multiTex) {
-            RenderSystem.setShaderTexture(0, textures[0]);
+        boolean orbiting = orbitPhaseOffset != 0.0F || orbitInclination != 0.0F;
+        BodyParams bp;
+        if (orbiting) {
+            bp = BodyParams.orbit(dist, 1.0F, orbitPhaseOffset, orbitInclination)
+                    .tilt(rotX, rotZ).spin(rotY);
+        } else {
+            bp = BodyParams.fixed(elev, azim, dist)
+                    .tilt(rotX, rotZ).spin(rotY);
         }
-
-        poseStack.pushPose();
-        applyOrbitRotations(poseStack, timeOfDay, orbitPhaseOffset, orbitInclination);
-        applyCubeTransforms(poseStack, x, y, z, scale, rotX, rotY, rotZ);
-        Matrix4f mat = poseStack.last().pose();
-
-        for (int i = 0; i < 6; i++) {
-            if (multiTex) {
-                RenderSystem.setShaderTexture(0, textures[i]);
-            }
-
-            BufferBuilder buf = Tesselator.getInstance().getBuilder();
-            buf.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
-
-            float[] v = CUBE_FACES[i];
-            buf.vertex(mat, v[0], v[1], v[2]).uv(0,1).color(b[i], b[i], b[i], alpha).endVertex();
-            buf.vertex(mat, v[3], v[4], v[5]).uv(1,1).color(b[i], b[i], b[i], alpha).endVertex();
-            buf.vertex(mat, v[6], v[7], v[8]).uv(1,0).color(b[i], b[i], b[i], alpha).endVertex();
-            buf.vertex(mat, v[9], v[10],v[11]).uv(0,0).color(b[i], b[i], b[i], alpha).endVertex();
-
-            BufferUploader.drawWithShader(buf.end());
-        }
-
-        poseStack.popPose();
+        renderLitBody(poseStack, bp, scale, alpha, timeOfDay, null, textures);
     }
 
     /**
-     * Renders a planet that does NOT orbit the sky. Unlike {@link #renderLitCube},
-     * elevation/azimuth position the body (they are no longer shading-only), and the
-     * axial tilt is applied in world space BEFORE the spin, so the planet keeps its
-     * orientation instead of tumbling once per day.
-     *
-     * @param elevationDeg direction of the body: -90 = straight down, 0 = horizon, +90 = zenith
-     * @param azimuthDeg   compass angle, 0 = +Z, 90 = +X (ignored at elevation +/-90)
-     * @param distance     distance from the camera; must exceed size or the camera ends up inside
-     * @param tiltX, tiltZ axial tilt in degrees, applied before the spin
-     * @param spinDeg      self-rotation around the tilted local +Y axis
-     * @param size         cube half-extent; angular radius = asin(size / distance)
-     * @param sunTime      time of day driving the terminator; offset it to fake a planet phase
+     * @deprecated Используйте {@link #renderLitBody(BodyParams, float, float, float, LightParams, ResourceLocation...)}
      */
+    @Deprecated
     public void renderLitCubeFixed(PoseStack poseStack,
-                                   float elevationDeg, float azimuthDeg, float distance,
-                                   float tiltX, float tiltZ, float spinDeg,
-                                   float size, float alpha,
-                                   float sunTime,
-                                   ResourceLocation... textures) {
-        Matrix4f rotation = fixedRotation(tiltX, tiltZ, spinDeg);
-        float[] b = faceBrightnessFor(rotation, sunTime);
+                                    float elevationDeg, float azimuthDeg, float distance,
+                                    float tiltX, float tiltZ, float spinDeg,
+                                    float size, float alpha,
+                                    float sunTime,
+                                    ResourceLocation... textures) {
+        BodyParams bp = BodyParams.fixed(elevationDeg, azimuthDeg, distance)
+                .tilt(tiltX, tiltZ).spin(spinDeg);
+        renderLitBody(poseStack, bp, size, alpha, sunTime, null, textures);
+    }
+
+    /**
+     * @deprecated Используйте {@link #renderAtmosphereBody(BodyParams, float, float, int, float, float, float, float, float, float, LightParams)}
+     */
+    @Deprecated
+    public void renderAtmosphere(PoseStack poseStack,
+                                  float x, float y, float z,
+                                  float rotX, float rotY, float rotZ,
+                                  float scale, float atmosphereScale, int layers,
+                                  float r, float g, float b, float alpha, float brightness,
+                                  float timeOfDay, float elevationDeg, float azimuthDeg,
+                                  float orbitPhaseOffset, float orbitInclination) {
+        float dist = (float) Math.sqrt(x*x + y*y + z*z);
+        float elev = (float) Math.toDegrees(Math.asin(y / dist));
+        float azim = (float) Math.toDegrees(Math.atan2(x, z));
+        boolean orbiting = orbitPhaseOffset != 0.0F || orbitInclination != 0.0F;
+        BodyParams bp;
+        if (orbiting) {
+            bp = BodyParams.orbit(dist, 1.0F, orbitPhaseOffset, orbitInclination)
+                    .tilt(rotX, rotZ).spin(rotY);
+        } else {
+            bp = BodyParams.fixed(elev, azim, dist)
+                    .tilt(rotX, rotZ).spin(rotY);
+        }
+        renderAtmosphereBody(poseStack, bp, scale, atmosphereScale, layers, r, g, b, alpha, brightness, timeOfDay, null);
+    }
+
+    /**
+     * @deprecated Используйте {@link #renderAtmosphereBody(BodyParams, float, float, int, float, float, float, float, float, float, LightParams)}
+     */
+    @Deprecated
+    public void renderAtmosphereFixed(PoseStack poseStack,
+                                       float elevationDeg, float azimuthDeg, float distance,
+                                       float tiltX, float tiltZ, float spinDeg,
+                                       float size, float atmosphereScale, int layers,
+                                       float r, float g, float b, float alpha, float brightness,
+                                       float sunTime) {
+        BodyParams bp = BodyParams.fixed(elevationDeg, azimuthDeg, distance)
+                .tilt(tiltX, tiltZ).spin(spinDeg);
+        renderAtmosphereBody(poseStack, bp, size, atmosphereScale, layers, r, g, b, alpha, brightness, sunTime, null);
+    }
+
+    // =====================================================================
+    //  Универсальный рендер: fixed + orbit в одном методе
+    // =====================================================================
+
+    /**
+     * Универсальный рендер освещённого куба. Работает для любого режима
+     * положения тела (fixed / orbit) и любого источника света.
+     *
+     * <p>Освещение считается из одной матрицы ориентации куба (tilt + spin),
+     * положение тела (fixed-направление или орбитальный угол) влияет только на
+     * перевод (translate), но не на матрицу освещения. Это устраняет рассинхрон
+     * между геометрией и терминатором.
+     *
+     * @param body     параметры положения/ориентации тела
+     * @param size     радиус куба (половина ребра)
+     * @param alpha    непрозрачность
+     * @param timeOfDay level.getTimeOfDay(partialTicks)
+     * @param light    параметры источника света; null = стандартное солнце
+     * @param textures 1 текстура на все грани или 6 (+Z, -Z, +X, -X, +Y, -Y)
+     */
+    public void renderLitBody(PoseStack poseStack,
+                              BodyParams body,
+                              float size, float alpha,
+                              float timeOfDay,
+                              @Nullable LightParams light,
+                              ResourceLocation... textures) {
+        Vector3f lightDir = lightDirection(light, timeOfDay);
+        Matrix4f orientation = bodyOrientation(body);
+        float[] b = computeBrightness(orientation, lightDir);
         boolean multiTex = textures.length >= 6;
 
         RenderSystem.setShader(GameRenderer::getPositionTexColorShader);
@@ -385,8 +581,14 @@ public class SkyHelper {
             RenderSystem.setShaderTexture(0, textures[0]);
         }
 
+        Vector3f dir = bodyDirection(body, timeOfDay);
         poseStack.pushPose();
-        applyFixedPlacement(poseStack, elevationDeg, azimuthDeg, distance, size, tiltX, tiltZ, spinDeg);
+        poseStack.translate(dir.x * body.distance, dir.y * body.distance, dir.z * body.distance);
+        if (size != 1.0F) poseStack.scale(size, size, size);
+        poseStack.mulPose(Axis.XP.rotationDegrees(body.tiltX));
+        poseStack.mulPose(Axis.ZP.rotationDegrees(body.tiltZ));
+        poseStack.mulPose(Axis.YP.rotationDegrees(body.spinDeg));
+
         Matrix4f mat = poseStack.last().pose();
 
         for (int i = 0; i < 6; i++) {
@@ -410,76 +612,19 @@ public class SkyHelper {
     }
 
     /**
-     * Renders multiple atmospheric layers as a glowing shell around the cube.
-     * Uses POSITION_COLOR (no texture), additive blending (SRC_ALPHA, ONE) for a true
-     * glow effect, and sun-based per-face brightness. Layers go from outermost (faintest)
-     * to innermost (brightest) for correct alpha stacking. Call AFTER renderLitCube.
-     *
-     * @param atmosphereScale base scale multiplier for the innermost layer (e.g. 1.02F)
-     * @param layers         number of atmosphere shells
-     * @param r, g, b        atmosphere color (0.0–1.0)
-     * @param alpha          total atmosphere opacity (0.0–1.0)
-     * @param brightness     atmosphere brightness multiplier, independent from cube shading (e.g. 1.5F for brighter glow)
+     * Атмосфера для универсального рендера. Использует ту же матрицу ориентации,
+     * что и {@link #renderLitBody}.
      */
-    public void renderAtmosphere(PoseStack poseStack,
-                                 float x, float y, float z,
-                                 float rotX, float rotY, float rotZ,
-                                 float scale, float atmosphereScale, int layers,
-                                 float r, float g, float b, float alpha, float brightness,
-                                 float timeOfDay, float elevationDeg, float azimuthDeg,
-                                 float orbitPhaseOffset, float orbitInclination) {
-        float[] br = computeFaceBrightness(timeOfDay, elevationDeg, azimuthDeg, rotX, rotY, rotZ, orbitPhaseOffset, orbitInclination);
-
-        // Additive blending: atmosphere ADDS brightness → glows brighter than the cube
-        RenderSystem.enableBlend();
-        RenderSystem.blendFuncSeparate(
-            GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE,
-            GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
-        RenderSystem.depthMask(false);
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-
-        float step = 0.05F;
-
-        // Outer-to-inner so inner (brighter) layers composite on top
-        for (int i = layers - 1; i >= 0; i--) {
-            float layerScale = scale * (atmosphereScale + i * step);
-            float layerAlpha = alpha * (1.0F - (float) i / layers) / layers;
-
-            poseStack.pushPose();
-            applyOrbitRotations(poseStack, timeOfDay, orbitPhaseOffset, orbitInclination);
-            applyCubeTransforms(poseStack, x, y, z, layerScale, rotX, rotY, rotZ);
-
-            Matrix4f mat = poseStack.last().pose();
-            BufferBuilder buf = Tesselator.getInstance().getBuilder();
-            buf.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-
-            atmQuad(buf, mat, -1,-1, 1,  1,-1, 1,  1, 1, 1, -1, 1, 1, r,g,b, br[0] * brightness * layerAlpha);
-            atmQuad(buf, mat,  1,-1,-1, -1,-1,-1, -1, 1,-1,  1, 1,-1, r,g,b, br[1] * brightness * layerAlpha);
-            atmQuad(buf, mat,  1,-1, 1,  1,-1,-1,  1, 1,-1,  1, 1, 1, r,g,b, br[2] * brightness * layerAlpha);
-            atmQuad(buf, mat, -1,-1,-1, -1,-1, 1, -1, 1, 1, -1, 1,-1, r,g,b, br[3] * brightness * layerAlpha);
-            atmQuad(buf, mat, -1, 1, 1,  1, 1, 1,  1, 1,-1, -1, 1,-1, r,g,b, br[4] * brightness * layerAlpha);
-            atmQuad(buf, mat, -1,-1,-1,  1,-1,-1,  1,-1, 1, -1,-1, 1, r,g,b, br[5] * brightness * layerAlpha);
-
-            BufferUploader.drawWithShader(buf.end());
-            poseStack.popPose();
-        }
-
-        // Restore render state
-        RenderSystem.depthMask(true);
-        RenderSystem.disableBlend();
-        RenderSystem.defaultBlendFunc();
-    }
-
-    /** Fixed-placement counterpart of {@link #renderAtmosphere}. Call AFTER renderLitCubeFixed. */
-    public void renderAtmosphereFixed(PoseStack poseStack,
-                                      float elevationDeg, float azimuthDeg, float distance,
-                                      float tiltX, float tiltZ, float spinDeg,
-                                      float size, float atmosphereScale, int layers,
-                                      float r, float g, float b, float alpha, float brightness,
-                                      float sunTime) {
-        Matrix4f rotation = fixedRotation(tiltX, tiltZ, spinDeg);
-        float[] br = faceBrightnessFor(rotation, sunTime);
+    public void renderAtmosphereBody(PoseStack poseStack,
+                                     BodyParams body,
+                                     float size, float atmosphereScale, int layers,
+                                     float r, float g, float b, float alpha, float brightness,
+                                     float timeOfDay,
+                                     @Nullable LightParams light) {
+        Vector3f lightDir = lightDirection(light, timeOfDay);
+        Matrix4f orientation = bodyOrientation(body);
+        float[] br = computeBrightness(orientation, lightDir);
+        Vector3f dir = bodyDirection(body, timeOfDay);
 
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(
@@ -496,7 +641,11 @@ public class SkyHelper {
             float layerAlpha = alpha * (1.0F - (float) i / layers) / layers;
 
             poseStack.pushPose();
-            applyFixedPlacement(poseStack, elevationDeg, azimuthDeg, distance, layerScale, tiltX, tiltZ, spinDeg);
+            poseStack.translate(dir.x * body.distance, dir.y * body.distance, dir.z * body.distance);
+            poseStack.scale(layerScale, layerScale, layerScale);
+            poseStack.mulPose(Axis.XP.rotationDegrees(body.tiltX));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(body.tiltZ));
+            poseStack.mulPose(Axis.YP.rotationDegrees(body.spinDeg));
 
             Matrix4f mat = poseStack.last().pose();
             BufferBuilder buf = Tesselator.getInstance().getBuilder();
@@ -518,6 +667,7 @@ public class SkyHelper {
         RenderSystem.defaultBlendFunc();
     }
 
+    // =====================================================================
 
     /** Helper: emit one colored quad (no UV) for the atmosphere shell. */
     private static void atmQuad(BufferBuilder buf, Matrix4f mat,
@@ -607,6 +757,94 @@ public class SkyHelper {
         RenderSystem.defaultBlendFunc();
     }
 
+    public void renderStarRays(PoseStack poseStack,
+                               float x, float y, float z,
+                               float r, float g, float b,
+                               float[] rayLengths, // Массив из 4 элементов: длина каждого луча
+                               float baseWidth,    // Ширина луча у основания (возле центра звезды)
+                               float maxAlpha,     // Максимальная прозрачность у основания
+                               float rotationOffset, float timeOfDay,
+                               float orbitPhaseOffset, float orbitInclination) { // Общий угол поворота всех 4 лучей (в радианах)
+
+        if (rayLengths == null || rayLengths.length < 4) {
+            return; // Защита от ошибок
+        }
+
+        RenderSystem.enableBlend();
+        // Аддитивный блендинг для эффекта свечения
+        RenderSystem.blendFuncSeparate(
+                GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE,
+                GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO
+        );
+        RenderSystem.depthMask(false);
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+        // Получаем вращение камеры, чтобы лучи всегда смотрели на игрока (биллбординг)
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        float yaw = camera.getYRot();
+        float pitch = camera.getXRot();
+        Quaternionf billboardRotation = new Quaternionf()
+                .rotateY((float) Math.toRadians(-yaw))
+                .rotateX((float) Math.toRadians(Math.min(pitch, -20.0F)));
+
+        Quaternionf cameraRotation = camera.rotation();
+
+        poseStack.pushPose();
+        applyOrbitRotations(poseStack, timeOfDay, orbitPhaseOffset, orbitInclination);
+        poseStack.translate(x, y, z);
+        //poseStack.mulPose(cameraRotation); // Поворачиваем всю систему координат к камере
+        poseStack.mulPose(billboardRotation);
+
+        Matrix4f mat = poseStack.last().pose();
+        BufferBuilder buf = Tesselator.getInstance().getBuilder();
+        buf.begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+
+        // Рисуем 4 луча
+        for (int i = 0; i < 4; i++) {
+            float length = rayLengths[i];
+            if (length <= 0.0F) continue;
+
+            // Угол текущего луча (каждые 90 градусов = PI/2) + общий поворот
+            float angle = (i * Mth.HALF_PI) + rotationOffset;
+
+            // Вектор направления луча
+            float dx = Mth.cos(angle);
+            float dy = Mth.sin(angle);
+
+            // Перпендикулярный вектор для задания ширины луча
+            float px = -Mth.sin(angle);
+            float py = Mth.cos(angle);
+
+            // Вершина 1: Центр звезды (общая для всех лучей, но дублируем для простоты TRIANGLES)
+            buf.vertex(mat, 0.0F, 0.0F, 0.0F)
+                    .color(r, g, b, maxAlpha)
+                    .endVertex();
+
+            // Вершина 2: Правый край кончика луча (ширина сужается к концу, делаем tipWidth = baseWidth * 0.1F)
+            float tipWidth = baseWidth * 0.1F;
+            float x2 = (dx * length) + (px * tipWidth);
+            float y2 = (dy * length) + (py * tipWidth);
+            buf.vertex(mat, x2, y2, 0.0F)
+                    .color(r, g, b, 0.0F) // Прозрачность 0 на кончике
+                    .endVertex();
+
+            // Вершина 3: Левый край кончика луча
+            float x3 = (dx * length) - (px * tipWidth);
+            float y3 = (dy * length) - (py * tipWidth);
+            buf.vertex(mat, x3, y3, 0.0F)
+                    .color(r, g, b, 0.0F) // Прозрачность 0 на кончике
+                    .endVertex();
+        }
+
+        BufferUploader.drawWithShader(buf.end());
+        poseStack.popPose();
+
+        RenderSystem.depthMask(true);
+        RenderSystem.disableBlend();
+        RenderSystem.defaultBlendFunc();
+    }
+
     /**
      * Computes per-face Lambertian brightness by transforming the sun direction
      * into the cube's local frame via the inverse of the full rotation chain.
@@ -657,8 +895,8 @@ public class SkyHelper {
 
     /** Applies translate + scale + rotX + rotY + rotZ to the pose stack. */
     private static void applyCubeTransforms(PoseStack poseStack,
-                                             float x, float y, float z, float scale,
-                                             float rotX, float rotY, float rotZ) {
+                                              float x, float y, float z, float scale,
+                                              float rotX, float rotY, float rotZ) {
         poseStack.translate(x, y, z);
         if (scale != 1.0F) poseStack.scale(scale, scale, scale);
         if (rotX != 0.0F) poseStack.mulPose(Axis.XP.rotationDegrees(rotX));
@@ -670,54 +908,6 @@ public class SkyHelper {
     private static Vector3f sunDirection(float timeOfDay) {
         float angle = timeOfDay * Mth.TWO_PI;
         return new Vector3f(-Mth.sin(angle), Mth.cos(angle), 0.0F);
-    }
-
-    /** Lambertian brightness for a face given its outward normal and sun direction. */
-    private static float faceBrightness(float nx, float ny, float nz, Vector3f sun) {
-        float dot = nx * sun.x + ny * sun.y + nz * sun.z;
-        return 0.05F + 0.75F * Math.max(0.0F, dot);
-    }
-
-    /** Shared Lambert shading: rotates the sun into the cube's local frame via the inverse rotation. */
-    private static float[] faceBrightnessFor(Matrix4f rotation, float timeOfDay) {
-        Vector3f local = new Vector3f(sunDirection(timeOfDay));
-        new Matrix4f(rotation).invert().transformDirection(local);
-        local.normalize();
-
-        return new float[]{
-                faceBrightness( 0,  0,  1, local),  // +Z
-                faceBrightness( 0,  0, -1, local),  // -Z
-                faceBrightness( 1,  0,  0, local),  // +X
-                faceBrightness(-1,  0,  0, local),  // -X
-                faceBrightness( 0,  1,  0, local),  // +Y
-                faceBrightness( 0, -1,  0, local),  // -Y
-        };
-    }
-
-    /** Tilt first, spin second: the spin then runs around the already tilted local +Y axis. */
-    private static Matrix4f fixedRotation(float tiltX, float tiltZ, float spinDeg) {
-        Matrix4f m = new Matrix4f();
-        m.rotateX(tiltX * Mth.DEG_TO_RAD);
-        m.rotateZ(tiltZ * Mth.DEG_TO_RAD);
-        m.rotateY(spinDeg * Mth.DEG_TO_RAD);
-        return m;
-    }
-
-    /** Places a unit cube at (elevation, azimuth) * distance, scales it, then applies tilt + spin. */
-    private static void applyFixedPlacement(PoseStack poseStack, float elevationDeg, float azimuthDeg,
-                                            float distance, float size,
-                                            float tiltX, float tiltZ, float spinDeg) {
-        float el = elevationDeg * Mth.DEG_TO_RAD;
-        float az = azimuthDeg * Mth.DEG_TO_RAD;
-        poseStack.translate(Mth.cos(el) * Mth.sin(az) * distance,
-                Mth.sin(el) * distance,
-                Mth.cos(el) * Mth.cos(az) * distance);
-        if (size != 1.0F) poseStack.scale(size, size, size);
-        // Порядок совпадает с fixedRotation (Rx * Rz * Ry): спин крутит вокруг локальной Y,
-        // наклон применяется уже в мировой системе.
-        poseStack.mulPose(Axis.XP.rotationDegrees(tiltX));
-        poseStack.mulPose(Axis.ZP.rotationDegrees(tiltZ));
-        poseStack.mulPose(Axis.YP.rotationDegrees(spinDeg));
     }
 
     /**

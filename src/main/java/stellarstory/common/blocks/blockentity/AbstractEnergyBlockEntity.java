@@ -4,6 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -609,6 +610,10 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
             inventory.deserializeNBT(tag.getCompound("Inventory"));
         }
         loadTanks(tag);
+        // Update-пакет может применяться через load(): тогда баки придут в SyncTanks.
+        if (tag.contains("SyncTanks")) {
+            readSyncData(tag);
+        }
     }
 
     /** Баки сериализуются в под-тег по индексу. */
@@ -641,6 +646,13 @@ public abstract class AbstractEnergyBlockEntity extends BlockEntity
         CompoundTag tag = new CompoundTag();
         writeSyncData(tag);
         return tag;
+    }
+
+    /** Явно шлём update-пакет: без этого handleUpdateTag на клиенте может не вызваться. */
+    @Nullable
+    @Override
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override

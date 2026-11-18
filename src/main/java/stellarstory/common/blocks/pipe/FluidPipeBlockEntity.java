@@ -3,6 +3,7 @@ package stellarstory.common.blocks.pipe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -219,6 +220,13 @@ public class FluidPipeBlockEntity extends BlockEntity {
         return tag;
     }
 
+    /** Явно шлём update-пакет: без этого handleUpdateTag на клиенте может не вызваться. */
+    @Nullable
+    @Override
+    public ClientboundBlockEntityDataPacket getUpdatePacket() {
+        return ClientboundBlockEntityDataPacket.create(this);
+    }
+
     @Override
     public void handleUpdateTag(@NotNull CompoundTag tag) {
         readSyncData(tag);
@@ -233,7 +241,12 @@ public class FluidPipeBlockEntity extends BlockEntity {
     @Override
     public void load(@NotNull CompoundTag tag) {
         super.load(tag);
-        renderedFluid = FluidStack.EMPTY;
+        // Update-пакет может применяться через load(): тогда визуал придёт в RenderFluid.
+        if (tag.contains(TAG_RENDER_FLUID)) {
+            renderedFluid = FluidStack.loadFluidStackFromNBT(tag.getCompound(TAG_RENDER_FLUID));
+        } else {
+            renderedFluid = FluidStack.EMPTY;
+        }
     }
 
     private void writeSyncData(@NotNull CompoundTag tag) {

@@ -22,8 +22,25 @@ public class Moon extends CelestialBody implements IChildBody {
                     .forGetter(CelestialBody::getBodyDataHandler),
             OrbitData.CODEC.fieldOf("orbit").orElse(OrbitData.DEFAULT).forGetter(CelestialBody::getOrbit),
             OrbitVisual.CODEC.fieldOf("orbit_visual").orElse(OrbitVisual.DEFAULT).forGetter(CelestialBody::getOrbitVisual)
-    ).apply(instance, (name, icon, reachable, data, orbit, orbitVisual) ->
-            Moon.builder().name(name).icon(icon).reachable(reachable).orbit(orbit).orbitVisual(orbitVisual).build()));
+    ).apply(instance, (name, icon, reachable, data, orbit, orbitVisual) -> {
+            var builder = Moon.builder()
+                    .name(name)
+                    .icon(icon)
+                    .reachable(reachable)
+                    .orbit(orbit)
+                    .orbitVisual(orbitVisual);
+
+            var physical = data.physicalData();
+            var atm = data.atmosphereData();
+            if (physical != null) {
+                builder.gravity(physical.gravity());
+                builder.dayLength(physical.dayLength());
+            }
+            if (atm != null) builder.temperature(atm.temperature());
+
+            Moon moon = builder.build();
+            return moon;
+    }));
 
     public Moon(Builder builder) {
         super(builder);

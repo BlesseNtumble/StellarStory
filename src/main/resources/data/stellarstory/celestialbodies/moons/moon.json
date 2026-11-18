@@ -3,13 +3,13 @@
   "icon": "stellarstory:textures/celestialbodies/moon.png",
   "reachable": true,
   "data": {
-    "physical": { "day_length": 12800, "gravity": 0.16 },
+    "physical": { "day_length": 1280, "gravity": 0.16 },
     "atmosphere": { "temperature": -20, "temperature_modificator": 4.0, "temperature_offset": -10 }
   },
   "orbit": {
     "semi_major_axis": 6.0,
     "period": 8000,
-    "phase": 0.0,
+    "phase": 0.5,
     "eccentricity": 0.055,
     "inclination": 5.14,
     "ascending_node": 0.0

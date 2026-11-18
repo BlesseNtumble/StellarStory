@@ -137,13 +137,15 @@ public final class FluidNetwork extends PipeNetwork {
         }
 
         if (sources.isEmpty() || consumers.isEmpty()) {
-            setVisual(transferType);
+            setVisual(FluidStack.EMPTY);
             applyVisual(level);
             return false;
         }
 
         int moved = transfer(limit, transferType);
-        setVisual(transferType);
+        // Показываем жидкость только пока она реально переносится:
+        // иначе визуал «застревает» в трубах, когда перекачивать уже нечего.
+        setVisual(moved > 0 ? transferType : FluidStack.EMPTY);
         applyVisual(level);
         return moved > 0;
     }

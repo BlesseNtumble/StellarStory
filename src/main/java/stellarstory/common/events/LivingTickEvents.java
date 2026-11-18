@@ -32,9 +32,7 @@ public class LivingTickEvents {
         if (body == null || body.isEmpty() || !body.isReachable()) return;
 
         applyCustomGravity(entity, body.getBodyDataHandler().physicalData().gravity());
-
     }
-
 
     @SubscribeEvent
     public static void onLivingFall(LivingFallEvent event) {
@@ -44,7 +42,6 @@ public class LivingTickEvents {
         if (body == null || body.isEmpty() || !body.isReachable()) return;
 
         modifyFallDamage(event, entity, body.getBodyDataHandler().physicalData().gravity());
-
     }
 
     private static boolean isSurvivalOrAdventure(ServerPlayer player) {

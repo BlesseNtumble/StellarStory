@@ -8,6 +8,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import stellarstory.StellarStory;
 import stellarstory.client.renderer.FluidPipeRenderer;
+import stellarstory.client.renderer.FluidStorageRenderer;
 import stellarstory.client.screen.MachineScreen;
 import stellarstory.common.init.StellarBlockEntities;
 import stellarstory.common.init.StellarMenuTypes;
@@ -27,6 +28,7 @@ public class ClientSetup {
         event.enqueueWork(() -> {
             MenuScreens.register(StellarMenuTypes.MACHINE_MENU.get(), MachineScreen::new);
             BlockEntityRenderers.register(StellarBlockEntities.FLUID_PIPE.get(), FluidPipeRenderer::new);
+            BlockEntityRenderers.register(StellarBlockEntities.FLUID_STORAGE.get(), FluidStorageRenderer::new);
         });
     }
 }

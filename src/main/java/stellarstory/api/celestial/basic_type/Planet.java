@@ -48,6 +48,14 @@ public class Planet extends CelestialBody {
             builder.barycenterReference(barycenterRef);
         }
 
+        var physical = data.physicalData();
+        var atm = data.atmosphereData();
+        if (physical != null) {
+            builder.gravity(physical.gravity());
+            builder.dayLength(physical.dayLength());
+        }
+        if (atm != null) builder.temperature(atm.temperature());
+
         Planet planet = builder.build();
         planet.childsReferences = childs;
 

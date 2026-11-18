@@ -79,7 +79,6 @@ public class CelestialBodyLoader {
                 // Десериализация с помощью Codec
                 DataResult<StarSystem> result = StarSystem.CODEC.parse(JsonOps.INSTANCE, json);
                 result.result().ifPresent(starSystem -> {
-                    StellarStory.getLogger().info("test");
                     ResourceLocation id = ResourceLocation.fromNamespaceAndPath(StellarStory.MODID, starSystem.getName().toLowerCase());
                     STAR_SYSTEMS.put(id, starSystem);
                     StellarStory.getLogger().info("Loaded Star System: " + starSystem.getName());
